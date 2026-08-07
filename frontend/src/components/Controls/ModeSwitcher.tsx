@@ -7,14 +7,14 @@ export const ModeSwitcher: React.FC = () => {
   const dispatch = useDispatch();
   const currentMode = useSelector((state: RootState) => state.prediction.signMode);
 
-  const modes: { id: SignMode; label: string }[] = [
-    { id: 'letters', label: 'Letters (A-Z)' },
-    { id: 'numbers', label: 'Numbers (0-9)' },
-    { id: 'phrases', label: 'Phrases' }
+  const modes: { id: SignMode; label: string; icon: string }[] = [
+    { id: 'letters', label: 'Letters (A-Z)', icon: '📝' },
+    { id: 'numbers', label: 'Numbers (0-9)', icon: '🔢' },
+    { id: 'phrases', label: 'Phrases', icon: '💬' }
   ];
 
   return (
-    <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-lg w-full">
+    <div className="flex bg-white/60 backdrop-blur-md p-2 rounded-3xl border border-white/50 shadow-sm w-full md:w-max mx-auto lg:mx-0">
       {modes.map((mode) => {
         const isActive = currentMode === mode.id;
         return (
@@ -22,12 +22,13 @@ export const ModeSwitcher: React.FC = () => {
             key={mode.id}
             onClick={() => dispatch(setSignMode(mode.id))}
             className={`
-              flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-300
+              flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-2xl text-sm font-bold transition-all duration-300 hover:-translate-y-1
               ${isActive 
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white shadow-lg shadow-teal-500/30 transform scale-105' 
+                : 'text-slate-500 hover:text-teal-600 hover:bg-white/90 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md'}
             `}
           >
+            <span className="text-lg">{mode.icon}</span>
             {mode.label}
           </button>
         );

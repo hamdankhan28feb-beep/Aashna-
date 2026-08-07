@@ -15,7 +15,6 @@ export const CameraView: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
   
   const currentMode = useSelector((state: RootState) => state.prediction.signMode);
-  // Use a ref to ensure onResults always uses the latest mode without needing to re-bind
   const modeRef = useRef(currentMode);
   
   useEffect(() => {
@@ -33,7 +32,7 @@ export const CameraView: React.FC = () => {
       });
 
       hands.setOptions({
-        maxNumHands: 2, // Phase 2: Support up to 2 hands for phrases
+        maxNumHands: 2,
         modelComplexity: 1,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
@@ -73,21 +72,26 @@ export const CameraView: React.FC = () => {
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    // Mirror the view
     canvasCtx.translate(canvasRef.current.width, 0);
     canvasCtx.scale(-1, 1);
+    
+    // Draw with slight corner radius effect logic isn't trivial on canvas directly, 
+    // but the canvas element itself will be rounded via CSS.
     canvasCtx.drawImage(results.image, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       let globalMinX = 1, globalMinY = 1, globalMaxX = 0, globalMaxY = 0;
       
-      // Iterate through all detected hands to draw them and calculate a unified bounding box
       for (const landmarks of results.multiHandLandmarks) {
         for (const landmark of landmarks) {
           canvasCtx.beginPath();
-          canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 5, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = '#6366f1'; 
+          // Use a friendly teal color for the tracking dots
+          canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 6, 0, 2 * Math.PI);
+          canvasCtx.fillStyle = '#2dd4bf'; // teal-400
           canvasCtx.fill();
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = '#ffffff';
+          canvasCtx.stroke();
           
           globalMinX = Math.min(globalMinX, landmark.x);
           globalMinY = Math.min(globalMinY, landmark.y);
@@ -96,7 +100,6 @@ export const CameraView: React.FC = () => {
         }
       }
       
-      // Add padding to the combined bounding box
       const padding = 0.1;
       globalMinX = Math.max(0, globalMinX - padding);
       globalMinY = Math.max(0, globalMinY - padding);
@@ -111,7 +114,6 @@ export const CameraView: React.FC = () => {
       const sourceW = width * results.image.width;
       const sourceH = height * results.image.height;
       
-      // Draw cropped area (containing 1 or 2 hands) to 64x64 hidden canvas
       hiddenCtx.clearRect(0, 0, 64, 64);
       hiddenCtx.drawImage(
         results.image,
@@ -132,30 +134,34 @@ export const CameraView: React.FC = () => {
   };
 
   return (
-    <div className="w-full lg:w-[60%] flex flex-col gap-4">
-      <div className="relative w-full aspect-video bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
+    <div className="w-full flex flex-col gap-4 relative animate-float">
+      <div className="relative w-full aspect-video bg-white rounded-[3rem] overflow-hidden border-8 border-teal-100 shadow-[0_20px_50px_-12px_rgba(20,184,166,0.3)] flex items-center justify-center transform transition-transform hover:scale-[1.01]">
         {!isReady && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-4">
-            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-medium">Initializing AI Camera...</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-6 bg-slate-50/80 backdrop-blur-sm z-10">
+            <div className="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin shadow-lg"></div>
+            <p className="font-bold text-lg tracking-wide text-slate-600">Starting Camera...</p>
           </div>
         )}
         
         <video ref={videoRef} className="hidden" playsInline />
-        <canvas ref={canvasRef} width={640} height={480} className="w-full h-full object-cover" />
+        <canvas ref={canvasRef} width={640} height={480} className="w-full h-full object-cover rounded-[1.5rem]" />
         <canvas ref={hiddenCanvasRef} width={64} height={64} className="hidden" />
 
-        <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
-          <div className="bg-slate-950/60 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-800 pointer-events-auto">
-            <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${isReady ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></div>
-              <span className="text-sm font-medium text-slate-300">
-                {isReady ? 'Camera Active' : 'Connecting...'}
+        <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-md px-5 py-3 rounded-2xl border border-slate-100 shadow-xl pointer-events-auto">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isReady ? 'bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]' : 'bg-slate-300'}`}></div>
+              <span className="text-sm font-black text-slate-600 uppercase tracking-wider">
+                {isReady ? 'Camera Live' : 'Connecting'}
               </span>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Friendly decorative elements */}
+      <div className="absolute -top-6 -left-6 w-20 h-20 bg-yellow-300/30 rounded-full blur-2xl -z-10"></div>
+      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-teal-400/20 rounded-full blur-3xl -z-10"></div>
     </div>
   );
 };

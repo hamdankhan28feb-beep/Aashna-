@@ -10,8 +10,11 @@ function App() {
   return (
     <Provider store={store}>
       <MainLayout>
-        <CameraView />
-        <div className="w-full lg:w-[40%] flex flex-col gap-4">
+        {/* Adjusted Camera to take up 65% of the screen instead of 60% */}
+        <div className="w-full lg:w-[65%]">
+          <CameraView />
+        </div>
+        <div className="w-full lg:w-[35%] flex flex-col gap-5">
           <ModeSwitcher />
           <OutputPanel />
           <ControlsBar />
