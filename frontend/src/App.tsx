@@ -1,18 +1,21 @@
-import { CameraView } from "./components/Camera/CameraView";
-import { OutputPanel } from "./components/Output/OutputPanel";
+import { Provider } from 'react-redux';
+import { store } from './store';
+import { MainLayout } from './components/Layout/MainLayout';
+import { CameraView } from './components/Camera/CameraView';
+import { OutputPanel } from './components/Output/OutputPanel';
+import { ControlsBar } from './components/Controls/ControlsBar';
 
 function App() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b bg-white px-6 py-4">
-        <h1 className="text-xl font-semibold">🤟 Sign Language Bridge</h1>
-      </header>
-
-      <main className="mx-auto grid max-w-5xl grid-cols-1 gap-6 p-6 md:grid-cols-2">
+    <Provider store={store}>
+      <MainLayout>
         <CameraView />
-        <OutputPanel />
-      </main>
-    </div>
+        <div className="w-full lg:w-[40%] flex flex-col gap-4">
+          <OutputPanel />
+          <ControlsBar />
+        </div>
+      </MainLayout>
+    </Provider>
   );
 }
 
