@@ -22,11 +22,30 @@ SEED = 42
 CLASSES = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 
 
+def resolve_class_names(raw_dir: Path):
+    available_dirs = [
+        p.name for p in sorted(raw_dir.iterdir()) if p.is_dir() and p.name not in {".gitkeep"}
+    ]
+    normalized = [name.upper() for name in available_dirs if not name.isdigit()]
+
+    class_names = []
+    for candidate in normalized:
+        if candidate in CLASSES:
+            class_names.append(candidate)
+
+    if not class_names:
+        return CLASSES
+
+    return sorted(set(class_names), key=lambda item: CLASSES.index(item))
+
+
 def load_images():
     X, y = [], []
     missing = []
+    class_names = resolve_class_names(RAW_DIR)
+
     for label_idx, letter in enumerate(CLASSES):
-        class_dir = RAW_DIR / letter
+        class_dir = RAW_DIR / letter.lower()
         if not class_dir.exists():
             missing.append(letter)
             continue
@@ -56,6 +75,7 @@ def main():
     print(f"Reading raw images from: {RAW_DIR}")
     X, y = load_images()
     print(f"Loaded {len(X)} images across {len(set(y.tolist()))} classes.")
+    print(f"Using classes: {CLASSES}")
 
     X = X.astype("float32") / 255.0
 
