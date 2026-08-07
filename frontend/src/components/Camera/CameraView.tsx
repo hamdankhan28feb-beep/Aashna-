@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Hands, Results } from '@mediapipe/hands';
 import { Camera } from '@mediapipe/camera_utils';
 import * as tf from '@tensorflow/tfjs';
 import { setPrediction } from '../../store/predictionSlice';
 import { predictFrame } from '../../services/modelService';
+import { RootState } from '../../store';
 
 export const CameraView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -13,6 +14,14 @@ export const CameraView: React.FC = () => {
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
   
+  const currentMode = useSelector((state: RootState) => state.prediction.signMode);
+  // Use a ref to ensure onResults always uses the latest mode without needing to re-bind
+  const modeRef = useRef(currentMode);
+  
+  useEffect(() => {
+    modeRef.current = currentMode;
+  }, [currentMode]);
+
   useEffect(() => {
     let camera: Camera | null = null;
     let hands: Hands | null = null;
@@ -24,7 +33,7 @@ export const CameraView: React.FC = () => {
       });
 
       hands.setOptions({
-        maxNumHands: 1,
+        maxNumHands: 2, // Phase 2: Support up to 2 hands for phrases
         modelComplexity: 1,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
@@ -64,46 +73,45 @@ export const CameraView: React.FC = () => {
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    // Mirror the view for a more natural feel for the user
+    // Mirror the view
     canvasCtx.translate(canvasRef.current.width, 0);
     canvasCtx.scale(-1, 1);
     canvasCtx.drawImage(results.image, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      const landmarks = results.multiHandLandmarks[0];
+      let globalMinX = 1, globalMinY = 1, globalMaxX = 0, globalMaxY = 0;
       
-      // Draw hand landmarks
-      for (const landmark of landmarks) {
-        canvasCtx.beginPath();
-        canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 5, 0, 2 * Math.PI);
-        canvasCtx.fillStyle = '#6366f1'; 
-        canvasCtx.fill();
+      // Iterate through all detected hands to draw them and calculate a unified bounding box
+      for (const landmarks of results.multiHandLandmarks) {
+        for (const landmark of landmarks) {
+          canvasCtx.beginPath();
+          canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 5, 0, 2 * Math.PI);
+          canvasCtx.fillStyle = '#6366f1'; 
+          canvasCtx.fill();
+          
+          globalMinX = Math.min(globalMinX, landmark.x);
+          globalMinY = Math.min(globalMinY, landmark.y);
+          globalMaxX = Math.max(globalMaxX, landmark.x);
+          globalMaxY = Math.max(globalMaxY, landmark.y);
+        }
       }
       
-      // Calculate Bounding Box
-      let minX = 1, minY = 1, maxX = 0, maxY = 0;
-      for (const landmark of landmarks) {
-        minX = Math.min(minX, landmark.x);
-        minY = Math.min(minY, landmark.y);
-        maxX = Math.max(maxX, landmark.x);
-        maxY = Math.max(maxY, landmark.y);
-      }
-      
+      // Add padding to the combined bounding box
       const padding = 0.1;
-      minX = Math.max(0, minX - padding);
-      minY = Math.max(0, minY - padding);
-      maxX = Math.min(1, maxX + padding);
-      maxY = Math.min(1, maxY + padding);
+      globalMinX = Math.max(0, globalMinX - padding);
+      globalMinY = Math.max(0, globalMinY - padding);
+      globalMaxX = Math.min(1, globalMaxX + padding);
+      globalMaxY = Math.min(1, globalMaxY + padding);
       
-      const width = maxX - minX;
-      const height = maxY - minY;
+      const width = globalMaxX - globalMinX;
+      const height = globalMaxY - globalMinY;
       
-      const sourceX = minX * results.image.width;
-      const sourceY = minY * results.image.height;
+      const sourceX = globalMinX * results.image.width;
+      const sourceY = globalMinY * results.image.height;
       const sourceW = width * results.image.width;
       const sourceH = height * results.image.height;
       
-      // Draw cropped hand to 64x64 hidden canvas
+      // Draw cropped area (containing 1 or 2 hands) to 64x64 hidden canvas
       hiddenCtx.clearRect(0, 0, 64, 64);
       hiddenCtx.drawImage(
         results.image,
@@ -113,7 +121,7 @@ export const CameraView: React.FC = () => {
       
       try {
         const tensor = tf.browser.fromPixels(hiddenCanvasRef.current);
-        const prediction = await predictFrame(tensor);
+        const prediction = await predictFrame(tensor, modeRef.current);
         dispatch(setPrediction(prediction));
       } catch (e) {
         console.error("Prediction error:", e);

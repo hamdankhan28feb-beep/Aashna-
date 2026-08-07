@@ -1,16 +1,20 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Prediction } from "../types";
 
+export type SignMode = 'letters' | 'numbers' | 'phrases';
+
 interface PredictionState {
   current: Prediction | null;
   text: string;
   confidenceThreshold: number;
+  signMode: SignMode;
 }
 
 const initialState: PredictionState = {
   current: null,
   text: "",
-  confidenceThreshold: 0.7, // per PRD data flow: only accept predictions above this
+  confidenceThreshold: 0.7, 
+  signMode: 'letters',
 };
 
 const predictionSlice = createSlice({
@@ -32,8 +36,11 @@ const predictionSlice = createSlice({
     clearText(state) {
       state.text = "";
     },
+    setSignMode(state, action: PayloadAction<SignMode>) {
+      state.signMode = action.payload;
+    }
   },
 });
 
-export const { setPrediction, appendChar, backspace, clearText } = predictionSlice.actions;
+export const { setPrediction, appendChar, backspace, clearText, setSignMode } = predictionSlice.actions;
 export default predictionSlice.reducer;
