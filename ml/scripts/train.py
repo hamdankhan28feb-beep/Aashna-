@@ -8,14 +8,21 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks
+import json
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 MODEL_DIR = Path(__file__).resolve().parents[1] / "models"
 IMG_SIZE = 64
-NUM_CLASSES = 26
+
+# Read NUM_CLASSES from label mapping
+with open(DATA_DIR / "label_mapping.json") as f:
+    label_map = json.load(f)
+    NUM_CLASSES = len(label_map["label_to_class"])  # Auto-detect from data
+
 EPOCHS = 30
 BATCH_SIZE = 64
 
+print(f"🔍 Auto-detected {NUM_CLASSES} classes from dataset")
 
 def build_model():
     model = models.Sequential([

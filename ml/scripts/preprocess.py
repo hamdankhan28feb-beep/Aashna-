@@ -1,100 +1,120 @@
-"""
-Preprocess the Kaggle ASL Alphabet dataset:
-  ml/data/raw/<LETTER>/*.jpg  ->  ml/data/processed/{X_train,X_test,y_train,y_test}.npy
-
-Usage:
-    python scripts/preprocess.py
-"""
 import os
 import cv2
 import numpy as np
-from pathlib import Path
 from sklearn.model_selection import train_test_split
-from tqdm import tqdm
+from pathlib import Path
 
-RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
-OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
-IMG_SIZE = 64  # matches the CNN input in the Architecture doc
-TEST_SPLIT = 0.2
-SEED = 42
+print("🔄 Starting Data Preprocessing...")
 
-# A-Z only for the MVP (Phase 1). Extend this list later for numbers/phrases.
-CLASSES = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+# Path to dataset
+dataset_path = Path('ml/data/raw')
+output_path = Path('ml/data/processed')
 
+# Parameters
+IMG_SIZE = 64
+TEST_SIZE = 0.2
 
-def resolve_class_names(raw_dir: Path):
-    available_dirs = [
-        p.name for p in sorted(raw_dir.iterdir()) if p.is_dir() and p.name not in {".gitkeep"}
-    ]
-    normalized = [name.upper() for name in available_dirs if not name.isdigit()]
+# Create output folder
+output_path.mkdir(exist_ok=True)
 
-    class_names = []
-    for candidate in normalized:
-        if candidate in CLASSES:
-            class_names.append(candidate)
+# Load all images and labels
+images = []
+labels = []
+label_to_class = {}
+class_to_label = {}
 
-    if not class_names:
-        return CLASSES
+print("\n📸 Loading images...")
 
-    return sorted(set(class_names), key=lambda item: CLASSES.index(item))
+# Get all folders (both numbers and letters)
+class_folders = sorted([f for f in os.listdir(dataset_path) if os.path.isdir(dataset_path / f)])
+print(f"Found classes: {class_folders}")
 
-
-def load_images():
-    X, y = [], []
-    missing = []
-    class_names = resolve_class_names(RAW_DIR)
-
-    for label_idx, letter in enumerate(CLASSES):
-        class_dir = RAW_DIR / letter.lower()
-        if not class_dir.exists():
-            missing.append(letter)
-            continue
-        files = [f for f in class_dir.iterdir() if f.suffix.lower() in (".jpg", ".jpeg", ".png")]
-        for f in tqdm(files, desc=f"Loading {letter}"):
-            img = cv2.imread(str(f))
+for idx, class_name in enumerate(class_folders):
+    class_path = dataset_path / class_name
+    
+    label_to_class[idx] = class_name
+    class_to_label[class_name] = idx
+    
+    # Get all images in this class folder
+    image_files = [f for f in os.listdir(class_path) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+    
+    print(f"Loading class {class_name}: {len(image_files)} images")
+    
+    for img_file in image_files:
+        try:
+            image_path = class_path / img_file
+            
+            # Read image
+            img = cv2.imread(str(image_path))
             if img is None:
                 continue
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
+            # Resize to 64x64
             img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-            X.append(img)
-            y.append(label_idx)
+            
+            # Convert BGR to RGB
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
+            images.append(img)
+            labels.append(idx)
+        except Exception as e:
+            print(f"  Error loading {img_file}: {e}")
+            continue
 
-    if missing:
-        print(f"\n⚠️  No folder found for: {', '.join(missing)}")
-        print(f"   Expected structure: ml/data/raw/<LETTER>/*.jpg  (see ml/README.md)\n")
+# Convert to numpy arrays
+X = np.array(images, dtype=np.float32)
+y = np.array(labels, dtype=np.int32)
 
-    if not X:
-        raise SystemExit(
-            "No images loaded. Put the dataset into ml/data/raw/<LETTER>/*.jpg first — see ml/README.md"
-        )
+print(f"\n✅ Loaded {len(X)} images")
+print(f"   Shape: {X.shape}")
 
-    return np.array(X, dtype=np.uint8), np.array(y, dtype=np.int64)
+# Normalize pixel values (0-255 → 0-1)
+X = X / 255.0
 
+print(f"\n🔀 Splitting data: 80% train, 20% test...")
 
-def main():
-    print(f"Reading raw images from: {RAW_DIR}")
-    X, y = load_images()
-    print(f"Loaded {len(X)} images across {len(set(y.tolist()))} classes.")
-    print(f"Using classes: {CLASSES}")
+# Split into train/test
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=TEST_SIZE, random_state=42, stratify=y
+)
 
-    X = X.astype("float32") / 255.0
+print(f"✅ Train set: {X_train.shape}")
+print(f"✅ Test set: {X_test.shape}")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SPLIT, random_state=SEED, stratify=y
-    )
+# Save as numpy files
+print(f"\n💾 Saving preprocessed data...")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    np.save(OUT_DIR / "X_train.npy", X_train)
-    np.save(OUT_DIR / "X_test.npy", X_test)
-    np.save(OUT_DIR / "y_train.npy", y_train)
-    np.save(OUT_DIR / "y_test.npy", y_test)
+np.save(output_path / 'X_train.npy', X_train)
+np.save(output_path / 'y_train.npy', y_train)
+np.save(output_path / 'X_test.npy', X_test)
+np.save(output_path / 'y_test.npy', y_test)
 
-    with open(OUT_DIR / "classes.txt", "w") as f:
-        f.write("\n".join(CLASSES))
+# Save label mapping
+import json
+with open(output_path / 'label_mapping.json', 'w') as f:
+    json.dump({
+        'label_to_class': {str(k): v for k, v in label_to_class.items()},
+        'class_to_label': class_to_label
+    }, f, indent=2)
 
-    print(f"\nSaved processed arrays to {OUT_DIR}")
-    print(f"  Train: {X_train.shape}   Test: {X_test.shape}")
+# Save class names
+with open(output_path / 'classes.txt', 'w') as f:
+    f.write('\n'.join([label_to_class[i] for i in range(len(label_to_class))]))
 
+print(f"✅ Saved to ml/data/processed/")
 
-if __name__ == "__main__":
-    main()
+# Verify
+print(f"\n📋 Files created:")
+for file in os.listdir(output_path):
+    if file.endswith('.npy'):
+        size = os.path.getsize(output_path / file) / (1024*1024)
+        print(f"   - {file} ({size:.1f} MB)")
+    else:
+        print(f"   - {file}")
+
+print(f"\n✨ Preprocessing complete!")
+print(f"   Classes: {list(label_to_class.values())}")
+print(f"   Total images: {len(X)}")
+print(f"   Train samples: {len(X_train)}")
+print(f"   Test samples: {len(X_test)}")
+
