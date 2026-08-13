@@ -10,7 +10,7 @@ import tensorflowjs as tfjs
 import tensorflow as tf
 
 MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "asl_model.keras"
-OUT_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "models" / "asl_model"
+OUT_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "models" / "asl_model"
 
 
 def main():

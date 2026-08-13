@@ -10,13 +10,15 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@mediapipe/hands": "^0.4.1675469240",
     "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/drawing_utils": "^0.3.1675466124",
+    "@mediapipe/hands": "^0.4.1675469240",
     "@reduxjs/toolkit": "^2.2.7",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-converter": "^4.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-redux": "^9.1.2",
-    "@tensorflow/tfjs": "^4.20.0"
+    "react-redux": "^9.1.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -25,7 +27,7 @@
     "autoprefixer": "^10.4.19",
     "eslint": "^9.8.0",
     "postcss": "^8.4.40",
-    "tailwindcss": "^3.4.7",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5.5.4",
     "vite": "^5.3.5"
   }

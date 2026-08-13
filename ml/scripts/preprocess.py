@@ -3,8 +3,9 @@ import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from pathlib import Path
+import json
 
-print("🔄 Starting Data Preprocessing...")
+print("[INFO] Starting Data Preprocessing...")
 
 # Path to dataset
 dataset_path = Path('ml/data/raw')
@@ -23,7 +24,7 @@ labels = []
 label_to_class = {}
 class_to_label = {}
 
-print("\n📸 Loading images...")
+print("\n[INFO] Loading images...")
 
 # Get all folders (both numbers and letters)
 class_folders = sorted([f for f in os.listdir(dataset_path) if os.path.isdir(dataset_path / f)])
@@ -65,24 +66,24 @@ for idx, class_name in enumerate(class_folders):
 X = np.array(images, dtype=np.float32)
 y = np.array(labels, dtype=np.int32)
 
-print(f"\n✅ Loaded {len(X)} images")
+print(f"\n[OK] Loaded {len(X)} images")
 print(f"   Shape: {X.shape}")
 
-# Normalize pixel values (0-255 → 0-1)
+# Normalize pixel values (0-255 -> 0-1)
 X = X / 255.0
 
-print(f"\n🔀 Splitting data: 80% train, 20% test...")
+print(f"\n[INFO] Splitting data: 80% train, 20% test...")
 
 # Split into train/test
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=TEST_SIZE, random_state=42, stratify=y
 )
 
-print(f"✅ Train set: {X_train.shape}")
-print(f"✅ Test set: {X_test.shape}")
+print(f"[OK] Train set: {X_train.shape}")
+print(f"[OK] Test set: {X_test.shape}")
 
 # Save as numpy files
-print(f"\n💾 Saving preprocessed data...")
+print(f"\n[INFO] Saving preprocessed data...")
 
 np.save(output_path / 'X_train.npy', X_train)
 np.save(output_path / 'y_train.npy', y_train)
@@ -90,7 +91,6 @@ np.save(output_path / 'X_test.npy', X_test)
 np.save(output_path / 'y_test.npy', y_test)
 
 # Save label mapping
-import json
 with open(output_path / 'label_mapping.json', 'w') as f:
     json.dump({
         'label_to_class': {str(k): v for k, v in label_to_class.items()},
@@ -101,10 +101,10 @@ with open(output_path / 'label_mapping.json', 'w') as f:
 with open(output_path / 'classes.txt', 'w') as f:
     f.write('\n'.join([label_to_class[i] for i in range(len(label_to_class))]))
 
-print(f"✅ Saved to ml/data/processed/")
+print(f"[OK] Saved to ml/data/processed/")
 
 # Verify
-print(f"\n📋 Files created:")
+print(f"\n[INFO] Files created:")
 for file in os.listdir(output_path):
     if file.endswith('.npy'):
         size = os.path.getsize(output_path / file) / (1024*1024)
@@ -112,9 +112,8 @@ for file in os.listdir(output_path):
     else:
         print(f"   - {file}")
 
-print(f"\n✨ Preprocessing complete!")
+print(f"\n[OK] Preprocessing complete!")
 print(f"   Classes: {list(label_to_class.values())}")
 print(f"   Total images: {len(X)}")
 print(f"   Train samples: {len(X_train)}")
 print(f"   Test samples: {len(X_test)}")
-
