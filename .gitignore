@@ -20,19 +20,12 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
-ml/models/*
-!ml/models/.gitkeep
 ml/venv/
 *.h5
-*.keras
 *.tflite
-frontend/public/models/asl_model/*.bin
-frontend/public/models/asl_model/*.json
 
 # Python
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
+
 
 # OS / editor
 .DS_Store
