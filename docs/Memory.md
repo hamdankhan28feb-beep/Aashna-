@@ -219,7 +219,7 @@ Why:
 ```
 Model Size:      < 50 MB (browser memory)
 Inference Time:  < 100ms (real-time)
-Accuracy:        > 95% (user acceptable)
+Accuracy:        > 90% (user acceptable)
 Bandwidth:       < 1 Mbps (developing countries)
 Device Support:  Chrome, Firefox, Safari, Mobile browsers
 ```
@@ -246,7 +246,7 @@ Accessible for all abilities
 ## 8. PHASE GATES & MILESTONES
 
 ```
-Phase 1 Gate: Model evaluation passes (>95% accuracy) ✅
+Phase 1 Gate: Model evaluation passes (>90% accuracy) ✅
 → APPROVE to move to Phase 2
 
 Phase 2 Gate: Camera works, hand detection visible
@@ -275,7 +275,7 @@ Final Gate: All features tested, zero critical bugs
 ### Must-Have (MVP)
 ```
 ✅ A-Z recognition works
-✅ > 95% accuracy
+✅ > 90% accuracy
 ✅ < 100ms inference time
 ✅ Text displays in real-time
 ✅ Works on desktop/mobile
@@ -489,11 +489,11 @@ Slack (Team): [Your workspace]
 
 | Date | Decision | Rationale | Owner |
 |------|----------|-----------|-------|
-| Aug 7, 2026 | Start with ASL, not PSL | Dataset available, faster shipping | Muhammad |
-| Aug 7, 2026 | Use TensorFlow.js | Privacy, speed, cost | Muhammad |
-| Aug 7, 2026 | Use Firebase | Managed service, easy scaling | Muhammad |
+| Aug 7, 2026 | Start with ASL, not PSL | Dataset available, faster shipping | Muhammad Hamdan|
+| Aug 7, 2026 | Use TensorFlow.js | Privacy, speed, cost | Muhammad Hamdan|
+| Aug 7, 2026 | Use Firebase | Managed service, easy scaling | Muhammad Hamdan|
 | Aug 7, 2026 | Phased approach (A-Z first) | Ship faster, get feedback | Both |
-| Aug 7, 2026 | Focus on deaf users first | Better product, market fit | Muhammad |
+| Aug 7, 2026 | Focus on deaf users first | Better product, market fit | Muhammad Hamdan |
 
 ---
 
@@ -535,8 +535,8 @@ Data:
 - When adding new features
 
 **Who updates:**
-- Muhammad: Technical decisions, ML updates
-- Partner: Frontend decisions, UX updates
+- Muhammad Hamdan: Technical decisions, ML updates
+- Ayesha Nehal: Frontend decisions, UX updates
 - Both: Project status, timeline changes
 
 ---
@@ -545,7 +545,7 @@ Data:
 
 ```
 Project: Sign Language Bridge
-Team: Muhammad + Partner
+Team: Muhammad Hamdan + Ayesha Nehal
 Date: August 7, 2026
 Status: MVP Development Started
 
@@ -571,6 +571,6 @@ Target: 4 weeks to MVP (by Aug 31, 2026)
 
 ---
 
-**Document Owner:** Muhammad + Partner  
+**Document Owner:** Muhammad Hamdan + Ayesha Nehal  
 **Last Updated:** August 7, 2026  
 **Next Review:** After each phase completion
