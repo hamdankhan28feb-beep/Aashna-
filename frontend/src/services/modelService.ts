@@ -12,10 +12,20 @@ const ALL_36_CLASSES = [
   "u","v","w","x","y","z"
 ];
 
+// Allowed index range for each mode within the 36-class output.
+// Argmax is restricted to this range so out-of-mode classes are never returned.
+const MODE_RANGE: Record<string, { start: number; end: number }> = {
+  letters: { start: 10, end: 35 }, // a-z
+  numbers: { start: 0,  end: 9  }, // 0-9
+};
+
 // All modes use the single unified 36-class model
 const MODEL_URL = "/models/asl_model/model.json";
 
 let modelCache: tf.LayersModel | null = null;
+
+// ── DIAGNOSTIC: throttle timestamp (remove after diagnosis) ──────────────────
+let _lastDiagLog = 0;
 
 export async function loadModel(_mode: SignMode): Promise<tf.LayersModel> {
   if (modelCache) return modelCache;
@@ -49,22 +59,44 @@ export async function predictFrame(pixels: tf.Tensor3D, mode: SignMode): Promise
     input.dispose();
     output.dispose();
 
-    let bestIdx = 0;
-    for (let i = 1; i < probs.length; i++) {
+    // Restrict argmax to the indices allowed for the current mode.
+    // Falls back to the full range [0-35] if mode has no entry (defensive).
+    const { start, end } = MODE_RANGE[mode] ?? { start: 0, end: 35 };
+    let bestIdx = start;
+    for (let i = start + 1; i <= end; i++) {
       if (probs[i] > probs[bestIdx]) bestIdx = i;
     }
 
     const predicted = ALL_36_CLASSES[bestIdx] ?? "?";
     const confidence = probs[bestIdx] ?? 0;
 
-    // Log top-3 predictions for debugging
-    const ranked = Array.from(probs)
-      .map((p, i) => ({ cls: ALL_36_CLASSES[i] ?? i, p }))
-      .sort((a, b) => b.p - a.p)
-      .slice(0, 3);
-    console.log(
-      `[Prediction] Top-3: ${ranked.map(r => `${r.cls}=${(r.p * 100).toFixed(1)}%`).join(", ")}`
-    );
+    // ── DIAGNOSTIC LOGGING (throttled to every 500 ms) ───────────────────────
+    // TODO: remove this block once diagnosis is complete.
+    const now = Date.now();
+    if (now - _lastDiagLog >= 500) {
+      _lastDiagLog = now;
+      if (mode === 'numbers') {
+        // Show all 10 digit probabilities so we can see where mass is pooling
+        const digitProbs = Array.from(probs)
+          .slice(0, 10)
+          .map((p, i) => `${i}=${(p * 100).toFixed(1)}%`);
+        console.log(
+          `[DIAG-numbers] winner=${ALL_36_CLASSES[bestIdx]}(idx${bestIdx}) ` +
+          `rawConf=${(confidence * 100).toFixed(1)}% | ` +
+          `digits: [${digitProbs.join("  ")}]`
+        );
+      } else {
+        // Compact top-3 for non-Numbers modes
+        const ranked = Array.from(probs)
+          .map((p, i) => ({ cls: ALL_36_CLASSES[i] ?? i, p }))
+          .sort((a, b) => b.p - a.p)
+          .slice(0, 3);
+        console.log(
+          `[Prediction] Top-3: ${ranked.map(r => `${r.cls}=${(r.p * 100).toFixed(1)}%`).join(", ")}`
+        );
+      }
+    }
+    // ── END DIAGNOSTIC ────────────────────────────────────────────────────────
 
     return {
       letter: predicted,

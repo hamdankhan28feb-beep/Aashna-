@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Hands, Results } from '@mediapipe/hands';
 import { Camera } from '@mediapipe/camera_utils';
 import * as tf from '@tensorflow/tfjs';
-import { setPrediction } from '../../store/predictionSlice';
+import { setPrediction, appendLetter } from '../../store/predictionSlice';
 import { predictFrame } from '../../services/modelService';
 import { RootState } from '../../store';
 
@@ -13,12 +13,20 @@ export const CameraView: React.FC = () => {
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
+  // Tracks the last letter that was actually appended to text.
+  // Stored in a ref (not state) to avoid triggering re-renders on every frame.
+  const lastLetterRef = useRef<string | null>(null);
   
   const currentMode = useSelector((state: RootState) => state.prediction.signMode);
   const modeRef = useRef(currentMode);
   
   useEffect(() => {
     modeRef.current = currentMode;
+    lastLetterRef.current = null; // reset on mode change so first sign in new mode is never skipped
+    if (currentMode === 'phrases') {
+      // Clear stale confidence display — no predictions run in Phrases mode
+      dispatch(setPrediction({ letter: '', confidence: 0, timestamp: Date.now() }));
+    }
   }, [currentMode]);
 
   useEffect(() => {
@@ -123,11 +131,25 @@ export const CameraView: React.FC = () => {
       
       try {
         const tensor = tf.browser.fromPixels(hiddenCanvasRef.current);
-        const prediction = await predictFrame(tensor, modeRef.current);
-        dispatch(setPrediction(prediction));
+        // Phrases mode is not yet implemented — skip inference entirely
+        if (modeRef.current === 'phrases') {
+          tensor.dispose();
+        } else {
+          const prediction = await predictFrame(tensor, modeRef.current);
+          // Always update the current prediction display (for UI confidence meter etc.)
+          dispatch(setPrediction(prediction));
+          // Only append to text when the predicted letter changes from the last confirmed one
+          if (prediction.confidence >= 0.7 && prediction.letter !== lastLetterRef.current) {
+            lastLetterRef.current = prediction.letter;
+            dispatch(appendLetter(prediction.letter));
+          }
+        }
       } catch (e) {
         console.error("Prediction error:", e);
       }
+    } else {
+      // No hand in frame — reset so the same letter can be re-added next time
+      lastLetterRef.current = null;
     }
     
     canvasCtx.restore();

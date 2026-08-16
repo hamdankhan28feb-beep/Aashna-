@@ -22,10 +22,14 @@ const predictionSlice = createSlice({
   initialState,
   reducers: {
     setPrediction(state, action: PayloadAction<Prediction>) {
+      // Only update the current prediction for UI display (confidence meter, etc.)
+      // Text appending is handled separately by appendLetter to avoid duplicates.
       state.current = action.payload;
-      if (action.payload.confidence >= state.confidenceThreshold) {
-        state.text += action.payload.letter;
-      }
+    },
+    appendLetter(state, action: PayloadAction<string>) {
+      // Appends a single letter to the text output. Called only when the
+      // predicted letter changes (dedup logic lives in CameraView).
+      state.text += action.payload;
     },
     appendChar(state, action: PayloadAction<string>) {
       state.text += action.payload;
@@ -42,5 +46,5 @@ const predictionSlice = createSlice({
   },
 });
 
-export const { setPrediction, appendChar, backspace, clearText, setSignMode } = predictionSlice.actions;
+export const { setPrediction, appendLetter, appendChar, backspace, clearText, setSignMode } = predictionSlice.actions;
 export default predictionSlice.reducer;
