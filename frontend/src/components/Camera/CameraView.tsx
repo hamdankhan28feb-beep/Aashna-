@@ -13,16 +13,30 @@ export const CameraView: React.FC = () => {
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
-  // Tracks the last letter that was actually appended to text.
-  // Stored in a ref (not state) to avoid triggering re-renders on every frame.
-  const lastLetterRef = useRef<string | null>(null);
+  // ── Hold-to-confirm stability config ─────────────────────────────────────
+  // Tune this single value to change how long a sign must be held before
+  // it is accepted. 1000 ms = 1 second.
+  const STABILITY_MS = 1000;
+
+  // lastLetterRef  → the last letter that was CONFIRMED and appended to text.
+  //                  Prevents the same letter from being appended twice in a row.
+  // candidateLetterRef    → the letter currently being "evaluated" (held steady
+  //                  for STABILITY_MS). Changes on every new argmax winner.
+  // candidateStartTimeRef → timestamp when the current candidate first appeared.
+  //                  Used to measure elapsed hold time on every frame.
+  const lastLetterRef        = useRef<string | null>(null);
+  const candidateLetterRef   = useRef<string | null>(null);
+  const candidateStartTimeRef = useRef<number | null>(null);
   
   const currentMode = useSelector((state: RootState) => state.prediction.signMode);
   const modeRef = useRef(currentMode);
   
   useEffect(() => {
     modeRef.current = currentMode;
-    lastLetterRef.current = null; // reset on mode change so first sign in new mode is never skipped
+    // Clear all three tracking refs on mode change
+    lastLetterRef.current        = null;
+    candidateLetterRef.current   = null;
+    candidateStartTimeRef.current = null;
     if (currentMode === 'phrases') {
       // Clear stale confidence display — no predictions run in Phrases mode
       dispatch(setPrediction({ letter: '', confidence: 0, timestamp: Date.now() }));
@@ -108,20 +122,37 @@ export const CameraView: React.FC = () => {
         }
       }
       
-      const padding = 0.1;
-      globalMinX = Math.max(0, globalMinX - padding);
-      globalMinY = Math.max(0, globalMinY - padding);
-      globalMaxX = Math.min(1, globalMaxX + padding);
-      globalMaxY = Math.min(1, globalMaxY + padding);
-      
-      const width = globalMaxX - globalMinX;
-      const height = globalMaxY - globalMinY;
-      
-      const sourceX = globalMinX * results.image.width;
-      const sourceY = globalMinY * results.image.height;
-      const sourceW = width * results.image.width;
-      const sourceH = height * results.image.height;
-      
+      // ── Square-crop: match training preprocessing ─────────────────────────
+      // Training images are pre-cropped square hand images with no background.
+      // To match that, we compute a SQUARE region in pixel space centered on
+      // the landmark bounding box, using the LONGER dimension as the side.
+      //
+      // PAD_RATIO adds context as a fraction of that square side (consistent
+      // regardless of hand size/distance — tune this value to taste).
+      const PAD_RATIO = 0.15; // 15% of square side added on each edge
+      const imgW = results.image.width;
+      const imgH = results.image.height;
+
+      // Bbox center and raw pixel extents from landmarks
+      const centerPxX = ((globalMinX + globalMaxX) / 2) * imgW;
+      const centerPxY = ((globalMinY + globalMaxY) / 2) * imgH;
+      const bboxPxW   = (globalMaxX - globalMinX) * imgW;
+      const bboxPxH   = (globalMaxY - globalMinY) * imgH;
+
+      // Use the LONGER pixel dimension to make the crop region square:
+      //   width > height → expand height up/down to match width
+      //   height > width → expand width left/right to match height
+      // Then add proportional padding so the hand has breathing room.
+      const squareSide = Math.max(bboxPxW, bboxPxH);
+      const paddedSide = squareSide * (1 + 2 * PAD_RATIO);
+      const halfSide   = paddedSide / 2;
+
+      // Clamp to image bounds (may clip slightly at frame edges — acceptable)
+      const sourceX = Math.max(0, centerPxX - halfSide);
+      const sourceY = Math.max(0, centerPxY - halfSide);
+      const sourceW = Math.min(imgW, centerPxX + halfSide) - sourceX;
+      const sourceH = Math.min(imgH, centerPxY + halfSide) - sourceY;
+
       hiddenCtx.clearRect(0, 0, 64, 64);
       hiddenCtx.drawImage(
         results.image,
@@ -138,18 +169,35 @@ export const CameraView: React.FC = () => {
           const prediction = await predictFrame(tensor, modeRef.current);
           // Always update the current prediction display (for UI confidence meter etc.)
           dispatch(setPrediction(prediction));
-          // Only append to text when the predicted letter changes from the last confirmed one
-          if (prediction.confidence >= 0.7 && prediction.letter !== lastLetterRef.current) {
-            lastLetterRef.current = prediction.letter;
-            dispatch(appendLetter(prediction.letter));
+
+          if (prediction.confidence >= 0.7) {
+            const letter = prediction.letter;
+            const now    = Date.now();
+
+            if (letter !== candidateLetterRef.current) {
+              // New candidate — start the stability timer fresh
+              candidateLetterRef.current    = letter;
+              candidateStartTimeRef.current = now;
+            } else if (
+              letter !== lastLetterRef.current &&
+              now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
+            ) {
+              // Same candidate held steadily for STABILITY_MS — confirm it
+              lastLetterRef.current = letter;
+              dispatch(appendLetter(letter));
+            }
+            // If letter === lastLetterRef.current: already confirmed, do nothing (dedup)
           }
         }
       } catch (e) {
         console.error("Prediction error:", e);
       }
     } else {
-      // No hand in frame — reset so the same letter can be re-added next time
-      lastLetterRef.current = null;
+      // No hand in frame — fully reset all three tracking refs so the same
+      // letter can be re-signed and re-added after the hand returns
+      lastLetterRef.current         = null;
+      candidateLetterRef.current    = null;
+      candidateStartTimeRef.current = null;
     }
     
     canvasCtx.restore();

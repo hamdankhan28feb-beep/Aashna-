@@ -48,10 +48,9 @@ export async function predictFrame(pixels: tf.Tensor3D, mode: SignMode): Promise
 
     const input = tf.tidy(() =>
       pixels
-        .resizeBilinear([64, 64])
-        .toFloat()
-        .div(255.0)
-        .expandDims(0)
+        .toFloat()      // uint8 → float32
+        .div(255.0)     // [0,255] → [0,1] — matches training: X = X / 255.0
+        .expandDims(0)  // (64,64,3) → (1,64,64,3) for batch dim
     );
 
     const output = net.predict(input) as tf.Tensor;
