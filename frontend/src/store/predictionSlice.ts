@@ -8,6 +8,8 @@ interface PredictionState {
   text: string;
   confidenceThreshold: number;
   signMode: SignMode;
+  targetLetter: string | null;
+  currentHint: string | null;
 }
 
 const initialState: PredictionState = {
@@ -15,6 +17,8 @@ const initialState: PredictionState = {
   text: "",
   confidenceThreshold: 0.7, 
   signMode: 'letters',
+  targetLetter: null,
+  currentHint: null,
 };
 
 const predictionSlice = createSlice({
@@ -22,13 +26,9 @@ const predictionSlice = createSlice({
   initialState,
   reducers: {
     setPrediction(state, action: PayloadAction<Prediction>) {
-      // Only update the current prediction for UI display (confidence meter, etc.)
-      // Text appending is handled separately by appendLetter to avoid duplicates.
       state.current = action.payload;
     },
     appendLetter(state, action: PayloadAction<string>) {
-      // Appends a single letter to the text output. Called only when the
-      // predicted letter changes (dedup logic lives in CameraView).
       state.text += action.payload;
     },
     appendChar(state, action: PayloadAction<string>) {
@@ -42,9 +42,16 @@ const predictionSlice = createSlice({
     },
     setSignMode(state, action: PayloadAction<SignMode>) {
       state.signMode = action.payload;
+    },
+    setTargetLetter(state, action: PayloadAction<string | null>) {
+      state.targetLetter = action.payload;
+      state.currentHint = null; // Clear hint when new target is set
+    },
+    setCurrentHint(state, action: PayloadAction<string | null>) {
+      state.currentHint = action.payload;
     }
   },
 });
 
-export const { setPrediction, appendLetter, appendChar, backspace, clearText, setSignMode } = predictionSlice.actions;
+export const { setPrediction, appendLetter, appendChar, backspace, clearText, setSignMode, setTargetLetter, setCurrentHint } = predictionSlice.actions;
 export default predictionSlice.reducer;

@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Hands, Results } from '@mediapipe/hands';
-import { Camera } from '@mediapipe/camera_utils';
 import * as tf from '@tensorflow/tfjs';
-import { setPrediction, appendLetter } from '../../store/predictionSlice';
+import { setPrediction, appendLetter, setCurrentHint } from '../../store/predictionSlice';
 import { predictFrame } from '../../services/modelService';
 import { RootState } from '../../store';
+import { generateHandFeedback } from '../../utils/landmarkHeuristics';
 
 export const CameraView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -13,40 +13,45 @@ export const CameraView: React.FC = () => {
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
-  // ── Hold-to-confirm stability config ─────────────────────────────────────
-  // Tune this single value to change how long a sign must be held before
-  // it is accepted. 1000 ms = 1 second.
+  
   const STABILITY_MS = 1000;
 
-  // lastLetterRef  → the last letter that was CONFIRMED and appended to text.
-  //                  Prevents the same letter from being appended twice in a row.
-  // candidateLetterRef    → the letter currently being "evaluated" (held steady
-  //                  for STABILITY_MS). Changes on every new argmax winner.
-  // candidateStartTimeRef → timestamp when the current candidate first appeared.
-  //                  Used to measure elapsed hold time on every frame.
   const lastLetterRef        = useRef<string | null>(null);
   const candidateLetterRef   = useRef<string | null>(null);
   const candidateStartTimeRef = useRef<number | null>(null);
+  const lastHintTimeRef      = useRef<number>(0);
   
   const currentMode = useSelector((state: RootState) => state.prediction.signMode);
+  const targetLetter = useSelector((state: RootState) => state.prediction.targetLetter);
   const modeRef = useRef(currentMode);
+  const targetLetterRef = useRef(targetLetter);
   
   useEffect(() => {
     modeRef.current = currentMode;
-    // Clear all three tracking refs on mode change
     lastLetterRef.current        = null;
     candidateLetterRef.current   = null;
     candidateStartTimeRef.current = null;
     if (currentMode === 'phrases') {
-      // Clear stale confidence display — no predictions run in Phrases mode
       dispatch(setPrediction({ letter: '', confidence: 0, timestamp: Date.now() }));
     }
-  }, [currentMode]);
+  }, [currentMode, dispatch]);
 
   useEffect(() => {
-    let camera: Camera | null = null;
+    targetLetterRef.current = targetLetter;
+  }, [targetLetter]);
+
+  useEffect(() => {
     let hands: Hands | null = null;
     let isActive = true;
+    let requestRef: number;
+    let isProcessing = false;
+
+    // In-memory canvas for lightweight preprocessing before MediaPipe
+    const preprocessCanvas = document.createElement('canvas');
+    preprocessCanvas.width = 640;
+    preprocessCanvas.height = 480;
+    // willReadFrequently is crucial for performance when using getImageData constantly
+    const preCtx = preprocessCanvas.getContext('2d', { willReadFrequently: true });
 
     const setupMediaPipe = async () => {
       hands = new Hands({
@@ -54,25 +59,76 @@ export const CameraView: React.FC = () => {
       });
 
       hands.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
+        maxNumHands: 1,           
+        modelComplexity: 0,       
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
       });
 
       hands.onResults(onResults);
 
-      if (videoRef.current) {
-        camera = new Camera(videoRef.current, {
-          onFrame: async () => {
-            if (videoRef.current && isActive) {
-              await hands?.send({ image: videoRef.current });
-            }
-          },
-          width: 640,
-          height: 480
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: 'user', frameRate: { ideal: 60 } }
         });
-        camera.start().then(() => setIsReady(true));
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play();
+            setIsReady(true);
+            
+            const processFrame = async () => {
+              if (!isActive || !videoRef.current || !preCtx) return;
+              
+              if (!isProcessing) {
+                isProcessing = true;
+                
+                preCtx.drawImage(videoRef.current, 0, 0, 640, 480);
+                
+                const imageData = preCtx.getImageData(0, 0, 640, 480);
+                const data = imageData.data;
+                
+                let totalLuminance = 0;
+                let count = 0;
+                for (let i = 0; i < data.length; i += 16) {
+                  totalLuminance += (data[i] + data[i+1] + data[i+2]) / 3;
+                  count++;
+                }
+                const avgLuminance = totalLuminance / count;
+                
+                const LUMINANCE_THRESHOLD = 100;
+                if (avgLuminance < LUMINANCE_THRESHOLD) {
+                  const gamma = 1.0 + (1.0 - (avgLuminance / LUMINANCE_THRESHOLD)); 
+                  const gammaCorrection = 1 / gamma;
+                  
+                  const lut = new Uint8Array(256);
+                  for (let i = 0; i < 256; i++) {
+                    lut[i] = Math.min(255, Math.pow(i / 255, gammaCorrection) * 255);
+                  }
+                  
+                  for (let i = 0; i < data.length; i += 4) {
+                    data[i]     = lut[data[i]];     
+                    data[i + 1] = lut[data[i + 1]]; 
+                    data[i + 2] = lut[data[i + 2]]; 
+                  }
+                  preCtx.putImageData(imageData, 0, 0);
+                }
+                
+                await hands?.send({ image: preprocessCanvas });
+                isProcessing = false;
+              }
+              
+              if (isActive) {
+                requestRef = requestAnimationFrame(processFrame);
+              }
+            };
+            
+            processFrame();
+          };
+        }
+      } catch (e) {
+        console.error("Camera error:", e);
       }
     };
 
@@ -80,7 +136,11 @@ export const CameraView: React.FC = () => {
 
     return () => {
       isActive = false;
-      camera?.stop();
+      if (requestRef) cancelAnimationFrame(requestRef);
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
       hands?.close();
     };
   }, []);
@@ -97,19 +157,17 @@ export const CameraView: React.FC = () => {
     canvasCtx.translate(canvasRef.current.width, 0);
     canvasCtx.scale(-1, 1);
     
-    // Draw with slight corner radius effect logic isn't trivial on canvas directly, 
-    // but the canvas element itself will be rounded via CSS.
     canvasCtx.drawImage(results.image, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       let globalMinX = 1, globalMinY = 1, globalMaxX = 0, globalMaxY = 0;
+      const primaryHandLandmarks = results.multiHandLandmarks[0];
       
       for (const landmarks of results.multiHandLandmarks) {
         for (const landmark of landmarks) {
           canvasCtx.beginPath();
-          // Use a friendly teal color for the tracking dots
           canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 6, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = '#2dd4bf'; // teal-400
+          canvasCtx.fillStyle = '#2dd4bf';
           canvasCtx.fill();
           canvasCtx.lineWidth = 2;
           canvasCtx.strokeStyle = '#ffffff';
@@ -122,32 +180,19 @@ export const CameraView: React.FC = () => {
         }
       }
       
-      // ── Square-crop: match training preprocessing ─────────────────────────
-      // Training images are pre-cropped square hand images with no background.
-      // To match that, we compute a SQUARE region in pixel space centered on
-      // the landmark bounding box, using the LONGER dimension as the side.
-      //
-      // PAD_RATIO adds context as a fraction of that square side (consistent
-      // regardless of hand size/distance — tune this value to taste).
-      const PAD_RATIO = 0.15; // 15% of square side added on each edge
+      const PAD_RATIO = 0.15;
       const imgW = results.image.width;
       const imgH = results.image.height;
 
-      // Bbox center and raw pixel extents from landmarks
       const centerPxX = ((globalMinX + globalMaxX) / 2) * imgW;
       const centerPxY = ((globalMinY + globalMaxY) / 2) * imgH;
       const bboxPxW   = (globalMaxX - globalMinX) * imgW;
       const bboxPxH   = (globalMaxY - globalMinY) * imgH;
 
-      // Use the LONGER pixel dimension to make the crop region square:
-      //   width > height → expand height up/down to match width
-      //   height > width → expand width left/right to match height
-      // Then add proportional padding so the hand has breathing room.
       const squareSide = Math.max(bboxPxW, bboxPxH);
       const paddedSide = squareSide * (1 + 2 * PAD_RATIO);
       const halfSide   = paddedSide / 2;
 
-      // Clamp to image bounds (may clip slightly at frame edges — acceptable)
       const sourceX = Math.max(0, centerPxX - halfSide);
       const sourceY = Math.max(0, centerPxY - halfSide);
       const sourceW = Math.min(imgW, centerPxX + halfSide) - sourceX;
@@ -155,19 +200,53 @@ export const CameraView: React.FC = () => {
 
       hiddenCtx.clearRect(0, 0, 64, 64);
       hiddenCtx.drawImage(
-        results.image,
+        results.image, 
         sourceX, sourceY, sourceW, sourceH,
         0, 0, 64, 64
       );
       
       try {
         const tensor = tf.browser.fromPixels(hiddenCanvasRef.current);
-        // Phrases mode is not yet implemented — skip inference entirely
         if (modeRef.current === 'phrases') {
-          tensor.dispose();
-        } else {
+          // If we are in phrase/quiz mode, run the prediction
           const prediction = await predictFrame(tensor, modeRef.current);
-          // Always update the current prediction display (for UI confidence meter etc.)
+          dispatch(setPrediction(prediction));
+          
+          const now = Date.now();
+          
+          // Generate Landmark Hint if they are in Quiz Mode and failing
+          if (targetLetterRef.current && (prediction.letter !== targetLetterRef.current || prediction.confidence < 0.7)) {
+            // Throttling hint generation to once every 500ms to prevent extreme flickering
+            if (now - lastHintTimeRef.current > 500) {
+              const hint = generateHandFeedback(targetLetterRef.current, primaryHandLandmarks);
+              dispatch(setCurrentHint(hint));
+              lastHintTimeRef.current = now;
+            }
+          } else if (targetLetterRef.current && prediction.letter === targetLetterRef.current && prediction.confidence >= 0.7) {
+            // Clear hint if they are doing it right!
+            if (now - lastHintTimeRef.current > 200) {
+              dispatch(setCurrentHint(null));
+              lastHintTimeRef.current = now;
+            }
+          }
+
+          if (prediction.confidence >= 0.7) {
+            const letter = prediction.letter;
+
+            if (letter !== candidateLetterRef.current) {
+              candidateLetterRef.current    = letter;
+              candidateStartTimeRef.current = now;
+            } else if (
+              letter !== lastLetterRef.current &&
+              now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
+            ) {
+              lastLetterRef.current = letter;
+              dispatch(appendLetter(letter));
+            }
+          }
+        } else {
+          // Normal letters mode
+          const prediction = await predictFrame(tensor, modeRef.current);
           dispatch(setPrediction(prediction));
 
           if (prediction.confidence >= 0.7) {
@@ -175,29 +254,28 @@ export const CameraView: React.FC = () => {
             const now    = Date.now();
 
             if (letter !== candidateLetterRef.current) {
-              // New candidate — start the stability timer fresh
               candidateLetterRef.current    = letter;
               candidateStartTimeRef.current = now;
             } else if (
               letter !== lastLetterRef.current &&
               now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
             ) {
-              // Same candidate held steadily for STABILITY_MS — confirm it
               lastLetterRef.current = letter;
               dispatch(appendLetter(letter));
             }
-            // If letter === lastLetterRef.current: already confirmed, do nothing (dedup)
           }
         }
       } catch (e) {
         console.error("Prediction error:", e);
       }
     } else {
-      // No hand in frame — fully reset all three tracking refs so the same
-      // letter can be re-signed and re-added after the hand returns
       lastLetterRef.current         = null;
       candidateLetterRef.current    = null;
       candidateStartTimeRef.current = null;
+      // Clear hint if no hand is detected
+      if (targetLetterRef.current) {
+         dispatch(setCurrentHint("Show your hand to the camera"));
+      }
     }
     
     canvasCtx.restore();
@@ -229,7 +307,6 @@ export const CameraView: React.FC = () => {
         </div>
       </div>
       
-      {/* Friendly decorative elements */}
       <div className="absolute -top-6 -left-6 w-20 h-20 bg-yellow-300/30 rounded-full blur-2xl -z-10"></div>
       <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-teal-400/20 rounded-full blur-3xl -z-10"></div>
     </div>
