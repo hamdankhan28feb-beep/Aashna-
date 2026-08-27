@@ -65,8 +65,17 @@ export const AchievementsView: React.FC = () => {
   const [progress, setProgress] = useState<UserProgress | null>(null);
 
   useEffect(() => {
-    // In a real app we'd subscribe to Redux, but we can just poll local storage for the view
-    setProgress(getProgress());
+    const refreshProgress = () => setProgress(getProgress());
+    refreshProgress();
+    window.addEventListener('focus', refreshProgress);
+    window.addEventListener('storage', refreshProgress);
+    const refreshTimer = window.setInterval(refreshProgress, 1000);
+
+    return () => {
+      window.removeEventListener('focus', refreshProgress);
+      window.removeEventListener('storage', refreshProgress);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
   if (!progress) return null;

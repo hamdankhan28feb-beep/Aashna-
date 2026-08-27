@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
 import { CameraView } from '../Camera/CameraView';
-import { setSignMode, setTargetLetter } from '../../store/predictionSlice';
+import { clearText, setSignMode, setTargetLetter } from '../../store/predictionSlice';
 import { addXp, UserProgress, getProgress } from '../../services/progressService';
 import { playSuccessSound, playBossWinSound } from '../../utils/audio';
 
@@ -24,6 +24,8 @@ export const SpellingView: React.FC = () => {
   // Initialize
   useEffect(() => {
     dispatch(setSignMode('phrases'));
+    dispatch(clearText());
+    previousTextLength.current = 0;
     const randomWord = WORDS[Math.floor(Math.random() * WORDS.length)];
     setTargetWord(randomWord);
     setCurrentLetterIdx(0);
@@ -51,6 +53,8 @@ export const SpellingView: React.FC = () => {
           
           setTimeout(() => {
             setShowSuccess(false);
+            dispatch(clearText());
+            previousTextLength.current = 0;
             const nextWord = WORDS[Math.floor(Math.random() * WORDS.length)];
             setTargetWord(nextWord);
             setCurrentLetterIdx(0);

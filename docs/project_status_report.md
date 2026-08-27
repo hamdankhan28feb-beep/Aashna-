@@ -1,7 +1,7 @@
 # 📑 Aashna (Sign Language Bridge) — Technical Status & Architecture Report
 
 **Project Name:** Aashna (Sign Language Bridge)  
-**Date:** August 18, 2026  
+**Date:** August 27, 2026
 **Architecture:** Client-Side Edge ML (MediaPipe + TensorFlow.js + React + Redux + Node/Express)
 
 ---
@@ -37,13 +37,20 @@ flowchart LR
    - Restricts the argmax search space based on the active UI mode:
      - **Letters Mode (`A–Z`):** Only searches indices `10–35`.
      - **Numbers Mode (`0–9`):** Only searches indices `0–9`.
-     - **Phrases Mode:** Inference skipped entirely until phrase model is implemented.
+    - **Phrases Mode:** Uses the static letter classifier for Quiz, Spelling Bee, and Role Play letter challenges. It is not yet a dynamic phrase classifier.
    - Prevents digit-shaped hand poses from falsely triggering letter predictions (and vice versa).
 
 4. **Intelligent Frame Deduplication (`lastLetterRef`)**
    - Solves the repetition problem (e.g., preventing `"AAAAAA"` output when holding a single sign).
    - Uses a non-rendering React `useRef` to track the last confirmed letter.
    - Only appends to the text string when a **new** letter is detected above the confidence threshold ($0.7$).
+  - Letter predictions are normalized to uppercase before challenge comparisons.
+  - Challenge text is cleared when starting or advancing a challenge to prevent stale input.
+
+5. **Gamification and cloud progress**
+  - Quiz, Spelling Bee, and Role Play update XP and progress locally.
+  - Achievements refresh when local progress changes.
+  - Leaderboard reads the top ten users from Firestore and displays Firebase errors with a retry state.
    - Automatically resets when the hand exits the camera frame or when the user switches mode.
 
 ---
@@ -105,6 +112,9 @@ To elevate Aashna from a static sign recognizer to a production-ready, maximum-a
 | **Static CNN Model (0-9 + A-Z)** | ✅ Functional | **93.57% Test Acc** | Quantize to INT8 |
 | **Class Masking (Letters/Numbers)** | ✅ Functional | 100% Deterministic | Maintain per-mode bounds |
 | **Deduplication (`lastLetterRef`)** | ✅ Functional | 100% Robust | Retain current implementation |
-| **Phrases Mode** | ⏳ Pending | N/A | Train LSTM landmark model |
+| **Challenge Modes** | ✅ Functional | Static letter recognition | Add temporal phrase model for dynamic signs |
 | **Dynamic Signs ('J', 'Z')** | ⏳ Pending | N/A | Implement sequence buffer |
-| **Backend Sync & Persistence** | 🔄 In Progress | Functional Server | Connect REST API endpoints |
+| **Quiz, Spelling Bee, Role Play** | ✅ Functional | Depends on model confidence and camera | Add browser interaction tests |
+| **Badges** | ✅ Functional | Based on local progress | Move progress to shared reactive state |
+| **Leaderboard** | 🔄 Firebase dependent | Requires auth, rules, and network | Configure production Firestore rules |
+| **Backend Sync & Persistence** | 🔄 In Progress | Partial route skeleton | Connect REST API endpoints |

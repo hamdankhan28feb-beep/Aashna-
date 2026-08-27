@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
 import { CameraView } from '../Camera/CameraView';
-import { setSignMode, setTargetLetter } from '../../store/predictionSlice';
+import { clearText, setSignMode, setTargetLetter } from '../../store/predictionSlice';
 import { getProgress, addXp, updateLetterStats, getNextSRSLetter, UserProgress } from '../../services/progressService';
 import { playSuccessSound, playBossWinSound, playErrorSound } from '../../utils/audio';
 
@@ -33,6 +33,7 @@ export const QuizView: React.FC = () => {
   useEffect(() => {
     if (!isBossFight) {
       dispatch(setSignMode('phrases'));
+      dispatch(clearText());
       dispatch(setTargetLetter(getNextSRSLetter('')));
       challengeStartTime.current = Date.now();
     }
@@ -61,6 +62,7 @@ export const QuizView: React.FC = () => {
     setBossState('playing');
     setBossScore(0);
     setBossTimeLeft(30);
+    dispatch(clearText());
     dispatch(setTargetLetter(ALPHABET[Math.floor(Math.random() * ALPHABET.length)]));
   };
 
@@ -86,6 +88,7 @@ export const QuizView: React.FC = () => {
           } else {
             setTimeout(() => {
               setShowSuccess(false);
+              dispatch(clearText());
               dispatch(setTargetLetter(ALPHABET[Math.floor(Math.random() * ALPHABET.length)]));
             }, 1000);
           }
@@ -103,6 +106,7 @@ export const QuizView: React.FC = () => {
           setTimeout(() => {
             setShowSuccess(false);
             setEarnedXp(null);
+            dispatch(clearText());
             dispatch(setTargetLetter(getNextSRSLetter(targetLetter)));
             challengeStartTime.current = Date.now();
           }, 1500);

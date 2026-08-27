@@ -19,7 +19,7 @@ const MODE_RANGE: Record<string, { start: number; end: number }> = {
   numbers: { start: 0,  end: 9  }, // 0-9
 };
 
-// All modes use the single unified 36-class model
+// All modes use the single unified 36-class model (V2 — contiguous-block split, no leakage)
 const MODEL_URL = "/models/asl_model/model.json";
 
 let modelCache: tf.LayersModel | null = null;
@@ -98,7 +98,7 @@ export async function predictFrame(pixels: tf.Tensor3D, mode: SignMode): Promise
     // ── END DIAGNOSTIC ────────────────────────────────────────────────────────
 
     return {
-      letter: predicted,
+      letter: mode === "letters" || mode === "phrases" ? predicted.toUpperCase() : predicted,
       confidence,
       timestamp: Date.now(),
     };

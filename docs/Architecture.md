@@ -1,8 +1,8 @@
 # 🏗️ ARCHITECTURE DOCUMENT
 ## Sign Language Bridge - Technical System Design
 
-**Document Version:** 1.0  
-**Last Updated:** August 7, 2026
+**Document Version:** 1.1
+**Last Updated:** August 27, 2026
 
 ---
 
@@ -30,8 +30,8 @@
 ├──────────────────────────────────────────────────────────────────┤
 │  TensorFlow.js + MediaPipe.js                                     │
 │  ├─ Hand Detection (MediaPipe)  → Detects hand positions         │
-│  ├─ CNN Model (TensorFlow.js)   → Classifies A-Z letters         │
-│  ├─ Post-processing             → Smooth predictions             │
+│  ├─ CNN Model (TensorFlow.js)   → Classifies 0-9 and A-Z         │
+│  ├─ Post-processing             → Masks, normalizes, and smooths │
 │  └─ Web Speech API              → Text-to-speech                 │
 │                                                                    │
 │  ✨ OFFLINE FIRST: All processing happens locally (private!)     │
@@ -168,18 +168,18 @@ Normalize & preprocess
         ↓
 TensorFlow.js CNN model processes
         ↓
-Model outputs: [confidence for A, confidence for B, ... confidence for Z]
+Model outputs: [confidence for 0-9 and a-z]
         ↓
 Find highest confidence
         ↓
-If confidence > 0.7:
+If confidence > 0.7 and the class is allowed for the active mode:
     ├─ Display letter
     ├─ Play sound (optional)
     ├─ Add to text output
 Else:
     └─ Show "Uncertain"
         ↓
-Text updates in real-time
+Text updates in real-time; challenge modes compare uppercase letters
         ↓
 User sees result immediately
 ```
@@ -434,7 +434,7 @@ GET    /api/signs/search?q=hello
 
 ## 6. MODEL ARCHITECTURE
 
-### 6.1 CNN Model (A-Z Recognition)
+### 6.1 CNN Model (36-Class Recognition)
 
 ```
 Input: 64x64x3 (RGB image)
@@ -457,9 +457,9 @@ Dense(256) + ReLU + Dropout(0.5)
     ↓
 Dense(128) + ReLU + Dropout(0.5)
     ↓
-Dense(26) + Softmax
+    Dense(36) + Softmax
     ↓
-Output: Probability distribution over A-Z
+Output: Probability distribution over 0-9 and a-z
 ```
 
 **Parameters:**

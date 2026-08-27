@@ -37,4 +37,24 @@ ml/venv/
 .firebase/
 firebase-debug.log
 
-.venv
+# Frontend specific ignored files/folders
+frontend/node_modules/
+frontend/public/asl/models/
+frontend/public/asl/bg-pattern.jpg
+frontend/public/asl/logo.png
+
+# ML specific ignored data folders
+ml/data/
+ml/models/
+ml/scripts/
+ml/tests/
+
+# ML (large data, models, scripts, and tests - keep README.md and requirements.txt)
+
+# Common dev junk
+.DS_Store
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/

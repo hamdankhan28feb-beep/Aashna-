@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
 import { CameraView } from '../Camera/CameraView';
-import { setSignMode, setTargetLetter } from '../../store/predictionSlice';
+import { clearText, setSignMode, setTargetLetter } from '../../store/predictionSlice';
 import { addXp, UserProgress, getProgress } from '../../services/progressService';
 import { playSuccessSound, playBossWinSound } from '../../utils/audio';
 
@@ -35,6 +35,8 @@ export const RoleplayView: React.FC = () => {
   // Initialize Conversation
   useEffect(() => {
     dispatch(setSignMode('phrases'));
+    dispatch(clearText());
+    previousTextLength.current = 0;
     
     // Initial bot message delay
     const timer = setTimeout(() => {
@@ -78,6 +80,8 @@ export const RoleplayView: React.FC = () => {
           if (nextIdx < SCRIPT.length) {
             // Bot replies after a delay
             setTimeout(() => {
+              dispatch(clearText());
+              previousTextLength.current = 0;
               setMessages(prev => [...prev, { sender: 'bot', text: SCRIPT[nextIdx].bot }]);
               setScriptIdx(nextIdx);
               setCurrentLetterIdx(0);

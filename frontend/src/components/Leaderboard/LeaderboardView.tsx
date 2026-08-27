@@ -13,9 +13,12 @@ interface LeaderboardUser {
 export const LeaderboardView: React.FC = () => {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const q = query(collection(db, 'users'), orderBy('xp', 'desc'), limit(10));
         const querySnapshot = await getDocs(q);
@@ -35,6 +38,7 @@ export const LeaderboardView: React.FC = () => {
         setUsers(fetchedUsers);
       } catch (e) {
         console.error("Error fetching leaderboard", e);
+        setError('Leaderboard unavailable. Check your Firebase connection and Firestore rules.');
       } finally {
         setLoading(false);
       }
@@ -72,6 +76,16 @@ export const LeaderboardView: React.FC = () => {
           <div className="w-full py-12 flex justify-center items-center flex-col gap-4">
             <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-500 rounded-full animate-spin"></div>
             <p className="text-slate-400 font-bold">Loading Top Scholars...</p>
+          </div>
+        ) : error ? (
+          <div className="w-full py-12 text-center">
+            <p className="text-rose-500 font-bold">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 bg-violet-500 text-white font-bold px-4 py-2 rounded-xl hover:bg-violet-600"
+            >
+              Retry
+            </button>
           </div>
         ) : users.length === 0 ? (
           <div className="w-full py-12 text-center text-slate-400 font-bold">

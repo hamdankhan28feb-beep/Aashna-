@@ -3,6 +3,8 @@
 
 ---
 
+**Last Updated:** August 27, 2026
+
 ## 1. DESIGN PHILOSOPHY
 
 ### Core Principles:
@@ -10,6 +12,15 @@
 2. **Accessibility** - Works for everyone
 3. **Real-time Feedback** - Immediate visual confirmation
 4. **Intuitiveness** - No learning curve
+5. **Progressive feedback** - Recognition, challenge progress, XP, and errors are visible immediately
+
+## 1.1 FEATURE STATES
+
+- Recognition controls show the current prediction and confidence before a letter is committed.
+- Quiz, Spelling Bee, and Role Play show the active target and advance only after a stable, confident sign.
+- Held signs are deduplicated; the hand must leave the frame before the same sign can be entered again.
+- Badges reflect local progress and refresh while the user is active.
+- Leaderboard loading, empty, and Firebase error states are separate so a connection failure is not presented as an empty result.
 
 ---
 
