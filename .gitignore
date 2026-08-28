@@ -3,12 +3,7 @@ node_modules/
 .pnp
 .pnp.js
 
-# Env
-.env
-.env.local
-.env.*.local
-backend/.env
-frontend/.env
+
 
 # Build outputs
 frontend/dist/
