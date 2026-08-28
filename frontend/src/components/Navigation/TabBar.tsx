@@ -82,22 +82,6 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
           <span className="text-lg">🎖️</span> Badges
         </button>
       </div>
-
-      <div className="flex shrink-0">
-        <button
-          onClick={() => {
-            // Import auth and signOut dynamically to avoid circular dependencies in simple setups
-            import('../../lib/firebase').then(({ auth }) => {
-              auth.signOut().then(() => {
-                window.location.reload(); // Quickest way to clear state and return to auth view
-              });
-            });
-          }}
-          className="px-6 py-3 rounded-full text-sm font-black tracking-wide text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all duration-300 flex items-center gap-2 border-2 border-transparent hover:border-rose-100"
-        >
-          Logout
-        </button>
-      </div>
     </div>
   );
 };

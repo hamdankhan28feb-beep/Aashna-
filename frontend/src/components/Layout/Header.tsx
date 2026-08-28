@@ -26,6 +26,18 @@ export const Header: React.FC = () => {
         <button className="px-5 py-2.5 rounded-full bg-slate-50 border-2 border-slate-100 text-sm font-black text-slate-500 flex items-center gap-2 cursor-pointer hover:bg-teal-50 hover:border-teal-200 hover:text-teal-600 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300">
           <span className="text-lg">🌍</span> EN
         </button>
+        <button
+          onClick={() => {
+            import('../../lib/firebase').then(({ auth }) => {
+              auth.signOut().then(() => {
+                window.location.reload();
+              });
+            });
+          }}
+          className="px-5 py-2.5 rounded-full bg-rose-50 border-2 border-rose-100 text-sm font-black text-rose-500 flex items-center gap-2 cursor-pointer hover:bg-rose-100 hover:border-rose-200 hover:text-rose-600 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300"
+        >
+          Logout
+        </button>
       </div>
     </header>
   );
