@@ -44,8 +44,8 @@ export const OutputPanel: React.FC = () => {
       </div>
       
       <div className="p-6 md:p-10 flex-1 min-h-[220px] flex items-center justify-between gap-6">
-        <div className="flex-1">
-          <p className="text-4xl md:text-6xl font-bold text-slate-700 break-words leading-tight tracking-tight">
+        <div className="flex-1 min-w-0">
+          <p className="text-4xl md:text-6xl font-bold text-slate-700 break-words whitespace-normal leading-tight tracking-tight max-w-full">
             {text || <span className="text-slate-300 font-medium">Start signing...</span>}
             <span className="inline-block w-1.5 h-12 md:h-16 bg-teal-400 ml-2 animate-pulse align-middle rounded-full opacity-80"></span>
           </p>
@@ -53,7 +53,7 @@ export const OutputPanel: React.FC = () => {
         
         {current && current.confidence > 0.5 && (
           <div className={`shrink-0 w-32 h-32 rounded-[2rem] border-4 flex items-center justify-center shadow-lg transition-all duration-300 ${isConfident ? 'bg-teal-50 border-teal-200' : 'bg-orange-50 border-orange-200'} ${bounce ? 'animate-success' : ''}`}>
-            <span className={`text-7xl font-black ${isConfident ? 'text-teal-500' : 'text-orange-400'}`}>
+            <span className={`text-7xl font-black whitespace-nowrap ${isConfident ? 'text-teal-500' : 'text-orange-400'}`}>
               {current.letter}
             </span>
           </div>

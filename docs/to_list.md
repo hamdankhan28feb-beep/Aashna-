@@ -2,10 +2,10 @@
 
 ## UI / UX Fixes
 
-- [ ] Fix UI breaking issues — buttons shifting/moving unexpectedly; when
+- [x] Fix UI breaking issues — buttons shifting/moving unexpectedly; when
       recognized letters/words appear on screen, they overflow out of their
       box — make sure text wraps properly under each line
-- [ ] On the main live camera screen, recognized letters (A-Z) should
+- [x] On the main live camera screen, recognized letters (A-Z) should
       display in a single line (not wrapping/stacking awkwardly)
 
 ## Recognition / Practice Features
