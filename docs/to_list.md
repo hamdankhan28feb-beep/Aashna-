@@ -21,7 +21,7 @@
 
 ## Content & Branding
 
-- [ ] Reduce the number of emojis used in the app
+- [x] Reduce the number of emojis used in the app
 - [ ] Make the logo and name more impactful in English
 
 ## Gamification & Chatbot
@@ -39,8 +39,8 @@
       and implement the Android version
 - [ ] Add camera permission handling so the Android app can access the
       device camera
-- [ ] Add a "Login with Google" feature
-- [ ] Add an email/contact section for the creators (e.g., in an About or
+- [x] Add a "Login with Google" feature
+- [x] Add an email/contact section for the creators (e.g., in an About or
       footer section)
 
 ---

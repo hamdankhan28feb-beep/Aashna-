@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { auth } from '../../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, googleProvider } from '../../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { syncProgressFromCloud } from '../../services/progressService';
+import { BrainCircuit } from 'lucide-react';
 
 interface AuthViewProps {
   onLogin: () => void;
@@ -36,20 +37,36 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      await syncProgressFromCloud();
+      onLogin();
+    } catch (err: any) {
+      setError(err.message || 'Google Sign-In failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4">
       <div className="bg-white/80 backdrop-blur-xl rounded-[3rem] p-8 lg:p-12 border-8 border-violet-100 shadow-[0_20px_50px_-12px_rgba(139,92,246,0.3)] w-full max-w-md relative overflow-hidden flex flex-col items-center animate-float">
         
-        {/* Cute Mascot */}
-        <div className="text-8xl mb-6 animate-bounce">🦉</div>
+        {/* Mascot */}
+        <div className="text-8xl mb-6 animate-bounce">
+          🦉
+        </div>
         
         <h1 className="text-3xl font-black text-slate-700 mb-2 text-center">
           {isLogin ? "Welcome Back!" : "Start Learning!"}
         </h1>
         <p className="text-slate-500 font-bold mb-6 text-center">
           {isLogin 
-            ? "Log in to keep your streak alive 🔥" 
-            : "Create an account to track your progress ⭐"}
+            ? "Log in to keep your streak alive." 
+            : "Create an account to track your progress."}
         </p>
 
         {error && (
@@ -57,6 +74,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             {error}
           </div>
         )}
+
+        <button 
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full bg-white border-4 border-slate-100 text-slate-600 font-black text-lg py-4 rounded-2xl mb-6 flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 hover:border-slate-200 shadow-sm"
+        >
+          <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />
+          Continue with Google
+        </button>
+
+        <div className="w-full flex items-center gap-4 mb-6">
+          <div className="h-0.5 bg-slate-100 flex-1"></div>
+          <span className="text-slate-300 font-black text-sm uppercase">OR</span>
+          <div className="h-0.5 bg-slate-100 flex-1"></div>
+        </div>
 
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div className="flex flex-col gap-1">

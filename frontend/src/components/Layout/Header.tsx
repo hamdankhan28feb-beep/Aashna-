@@ -1,4 +1,5 @@
 import React from 'react';
+import { Globe, Sparkles } from 'lucide-react';
 
 export const Header: React.FC = () => {
   return (
@@ -9,13 +10,13 @@ export const Header: React.FC = () => {
           alt="Aashna AI Logo" 
           className="h-16 w-auto object-contain transform transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
-            // Fallback if the user hasn't moved the image yet
             e.currentTarget.style.display = 'none';
           }}
         />
         <div className="flex flex-col justify-center">
           <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-cyan-500 tracking-tight leading-none flex items-center gap-2">
-            Aashna AI <span className="text-2xl inline-block transform transition-transform group-hover:animate-bounce group-hover:rotate-12">✨</span>
+            Aashna AI
+            <Sparkles className="w-5 h-5 text-cyan-500 inline-block transform transition-transform group-hover:animate-pulse group-hover:rotate-12" />
           </h1>
           <p className="text-xs font-bold text-slate-400 mt-1 hidden lg:block transition-colors group-hover:text-teal-500">
             Bridging Communication. Connecting Communities.
@@ -23,8 +24,8 @@ export const Header: React.FC = () => {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <button className="px-5 py-2.5 rounded-full bg-slate-50 border-2 border-slate-100 text-sm font-black text-slate-500 flex items-center gap-2 cursor-pointer hover:bg-teal-50 hover:border-teal-200 hover:text-teal-600 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300">
-          <span className="text-lg">🌍</span> EN
+        <button className="px-5 py-2.5 rounded-full bg-slate-50 border-2 border-slate-100 text-sm font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:bg-teal-50 hover:border-teal-200 hover:text-teal-700 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300">
+          <Globe className="w-4 h-4" /> EN
         </button>
         <button
           onClick={() => {
