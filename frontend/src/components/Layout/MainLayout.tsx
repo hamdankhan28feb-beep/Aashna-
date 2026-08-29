@@ -34,7 +34,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
             {/* M. Hamdan Khan */}
             <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-slate-100 shadow-sm">
-              <span className="text-black">M. Hamdan Khan</span>
+              <span className="text-black">Muhammad Hamdan</span>
               <span className="text-slate-400">|</span>
               <a href="https://www.linkedin.com/in/muhammad-hamdan-473061392/" target="_blank" rel="noreferrer" className="hover:text-violet-600 transition-colors">LinkedIn</a>
               <span>•</span>
