@@ -10,15 +10,17 @@ interface PredictionState {
   signMode: SignMode;
   targetLetter: string | null;
   currentHint: string | null;
+  useLandmarkModel: boolean;
 }
 
 const initialState: PredictionState = {
   current: null,
   text: "",
-  confidenceThreshold: 0.7, 
+  confidenceThreshold: 0.7,
   signMode: 'letters',
   targetLetter: null,
   currentHint: null,
+  useLandmarkModel: false,  // CNN model is the default
 };
 
 const predictionSlice = createSlice({
@@ -49,9 +51,12 @@ const predictionSlice = createSlice({
     },
     setCurrentHint(state, action: PayloadAction<string | null>) {
       state.currentHint = action.payload;
-    }
+    },
+    setUseLandmarkModel(state, action: PayloadAction<boolean>) {
+      state.useLandmarkModel = action.payload;
+    },
   },
 });
 
-export const { setPrediction, appendLetter, appendChar, backspace, clearText, setSignMode, setTargetLetter, setCurrentHint } = predictionSlice.actions;
+export const { setPrediction, appendLetter, appendChar, backspace, clearText, setSignMode, setTargetLetter, setCurrentHint, setUseLandmarkModel } = predictionSlice.actions;
 export default predictionSlice.reducer;

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { auth, googleProvider } from '../../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { syncProgressFromCloud } from '../../services/progressService';
-import { BrainCircuit } from 'lucide-react';
 
 interface AuthViewProps {
   onLogin: () => void;

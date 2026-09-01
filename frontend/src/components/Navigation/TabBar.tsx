@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Layers, BrainCircuit, SpellCheck, MessageCircle, Trophy, Medal } from 'lucide-react';
+import { Camera, Layers, SpellCheck, MessageCircle, Trophy, Medal } from 'lucide-react';
 
 export type TabMode = 'practice' | 'flashcards' | 'quiz' | 'spelling' | 'roleplay' | 'leaderboard' | 'achievements';
 

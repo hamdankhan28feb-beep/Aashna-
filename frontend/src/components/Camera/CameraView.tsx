@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Hands, Results } from '@mediapipe/hands';
+import { Hands, Results, HAND_CONNECTIONS } from '@mediapipe/hands';
 import * as tf from '@tensorflow/tfjs';
 import { setPrediction, appendLetter, setCurrentHint } from '../../store/predictionSlice';
 import { predictFrame } from '../../services/modelService';
+import { predictLandmarks } from '../../services/landmarkModelService';
 import { RootState } from '../../store';
 import { generateHandFeedback } from '../../utils/landmarkHeuristics';
 
@@ -21,10 +22,12 @@ export const CameraView: React.FC = () => {
   const candidateStartTimeRef = useRef<number | null>(null);
   const lastHintTimeRef      = useRef<number>(0);
   
-  const currentMode = useSelector((state: RootState) => state.prediction.signMode);
-  const targetLetter = useSelector((state: RootState) => state.prediction.targetLetter);
-  const modeRef = useRef(currentMode);
-  const targetLetterRef = useRef(targetLetter);
+  const currentMode       = useSelector((state: RootState) => state.prediction.signMode);
+  const useLandmarkModel  = useSelector((state: RootState) => state.prediction.useLandmarkModel);
+  const targetLetter      = useSelector((state: RootState) => state.prediction.targetLetter);
+  const modeRef           = useRef(currentMode);
+  const useLandmarkRef    = useRef(useLandmarkModel);
+  const targetLetterRef   = useRef(targetLetter);
   
   useEffect(() => {
     modeRef.current = currentMode;
@@ -35,6 +38,10 @@ export const CameraView: React.FC = () => {
       dispatch(setPrediction({ letter: '', confidence: 0, timestamp: Date.now() }));
     }
   }, [currentMode, dispatch]);
+
+  useEffect(() => {
+    useLandmarkRef.current = useLandmarkModel;
+  }, [useLandmarkModel]);
 
   useEffect(() => {
     targetLetterRef.current = targetLetter;
@@ -164,21 +171,38 @@ export const CameraView: React.FC = () => {
       const primaryHandLandmarks = results.multiHandLandmarks[0];
       
       for (const landmarks of results.multiHandLandmarks) {
-        for (const landmark of landmarks) {
-          canvasCtx.beginPath();
-          canvasCtx.arc(landmark.x * canvasRef.current.width, landmark.y * canvasRef.current.height, 6, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = '#2dd4bf';
-          canvasCtx.fill();
-          canvasCtx.lineWidth = 2;
-          canvasCtx.strokeStyle = '#ffffff';
-          canvasCtx.stroke();
-          
-          globalMinX = Math.min(globalMinX, landmark.x);
-          globalMinY = Math.min(globalMinY, landmark.y);
-          globalMaxX = Math.max(globalMaxX, landmark.x);
-          globalMaxY = Math.max(globalMaxY, landmark.y);
+          const cW = canvasRef.current.width;
+          const cH = canvasRef.current.height;
+
+          // ── Pass 1: skeleton connections (drawn below dots) ──────────────
+          canvasCtx.strokeStyle = '#2dd4bf';
+          canvasCtx.lineWidth = 2.5;
+          canvasCtx.lineCap = 'round';
+          for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
+            const a = landmarks[startIdx];
+            const b = landmarks[endIdx];
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(a.x * cW, a.y * cH);
+            canvasCtx.lineTo(b.x * cW, b.y * cH);
+            canvasCtx.stroke();
+          }
+
+          // ── Pass 2: joint dots (drawn on top of connections) ─────────────
+          for (const landmark of landmarks) {
+            canvasCtx.beginPath();
+            canvasCtx.arc(landmark.x * cW, landmark.y * cH, 6, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = '#2dd4bf';
+            canvasCtx.fill();
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#ffffff';
+            canvasCtx.stroke();
+
+            globalMinX = Math.min(globalMinX, landmark.x);
+            globalMinY = Math.min(globalMinY, landmark.y);
+            globalMaxX = Math.max(globalMaxX, landmark.x);
+            globalMaxY = Math.max(globalMaxY, landmark.y);
+          }
         }
-      }
       
       const PAD_RATIO = 0.15;
       const imgW = results.image.width;
@@ -206,63 +230,51 @@ export const CameraView: React.FC = () => {
       );
       
       try {
-        const tensor = tf.browser.fromPixels(hiddenCanvasRef.current);
-        if (modeRef.current === 'phrases') {
-          // If we are in phrase/quiz mode, run the prediction
-          const prediction = await predictFrame(tensor, modeRef.current);
-          dispatch(setPrediction(prediction));
-          
-          const now = Date.now();
-          
-          // Generate Landmark Hint if they are in Quiz Mode and failing
-          if (targetLetterRef.current && (prediction.letter !== targetLetterRef.current || prediction.confidence < 0.7)) {
-            // Throttling hint generation to once every 500ms to prevent extreme flickering
+        let prediction;
+
+        if (useLandmarkRef.current) {
+          // ── Landmark model path ──────────────────────────────────────────
+          // No canvas/pixel work needed — use the already-extracted landmarks.
+          // primaryHandLandmarks are the raw NormalizedLandmark objects from MediaPipe.
+          prediction = await predictLandmarks(primaryHandLandmarks, modeRef.current);
+        } else {
+          // ── CNN model path (default, unchanged) ──────────────────────────
+          const tensor = tf.browser.fromPixels(hiddenCanvasRef.current);
+          prediction   = await predictFrame(tensor, modeRef.current);
+        }
+
+        dispatch(setPrediction(prediction));
+
+        const now = Date.now();
+
+        // Hint logic runs regardless of which model is active
+        if (targetLetterRef.current) {
+          if (prediction.letter !== targetLetterRef.current || prediction.confidence < 0.7) {
             if (now - lastHintTimeRef.current > 500) {
               const hint = generateHandFeedback(targetLetterRef.current, primaryHandLandmarks);
               dispatch(setCurrentHint(hint));
               lastHintTimeRef.current = now;
             }
-          } else if (targetLetterRef.current && prediction.letter === targetLetterRef.current && prediction.confidence >= 0.7) {
-            // Clear hint if they are doing it right!
+          } else if (prediction.letter === targetLetterRef.current && prediction.confidence >= 0.7) {
             if (now - lastHintTimeRef.current > 200) {
               dispatch(setCurrentHint(null));
               lastHintTimeRef.current = now;
             }
           }
+        }
 
-          if (prediction.confidence >= 0.7) {
-            const letter = prediction.letter;
+        if (prediction.confidence >= 0.7) {
+          const letter = prediction.letter;
 
-            if (letter !== candidateLetterRef.current) {
-              candidateLetterRef.current    = letter;
-              candidateStartTimeRef.current = now;
-            } else if (
-              letter !== lastLetterRef.current &&
-              now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
-            ) {
-              lastLetterRef.current = letter;
-              dispatch(appendLetter(letter));
-            }
-          }
-        } else {
-          // Normal letters mode
-          const prediction = await predictFrame(tensor, modeRef.current);
-          dispatch(setPrediction(prediction));
-
-          if (prediction.confidence >= 0.7) {
-            const letter = prediction.letter;
-            const now    = Date.now();
-
-            if (letter !== candidateLetterRef.current) {
-              candidateLetterRef.current    = letter;
-              candidateStartTimeRef.current = now;
-            } else if (
-              letter !== lastLetterRef.current &&
-              now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
-            ) {
-              lastLetterRef.current = letter;
-              dispatch(appendLetter(letter));
-            }
+          if (letter !== candidateLetterRef.current) {
+            candidateLetterRef.current    = letter;
+            candidateStartTimeRef.current = now;
+          } else if (
+            letter !== lastLetterRef.current &&
+            now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
+          ) {
+            lastLetterRef.current = letter;
+            dispatch(appendLetter(letter));
           }
         }
       } catch (e) {
@@ -272,12 +284,11 @@ export const CameraView: React.FC = () => {
       lastLetterRef.current         = null;
       candidateLetterRef.current    = null;
       candidateStartTimeRef.current = null;
-      // Clear hint if no hand is detected
       if (targetLetterRef.current) {
-         dispatch(setCurrentHint("Show your hand to the camera"));
+        dispatch(setCurrentHint("Show your hand to the camera"));
       }
     }
-    
+
     canvasCtx.restore();
   };
 
@@ -296,6 +307,7 @@ export const CameraView: React.FC = () => {
         <canvas ref={hiddenCanvasRef} width={64} height={64} className="hidden" />
 
         <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none">
+          {/* Camera status */}
           <div className="bg-white/90 backdrop-blur-md px-5 py-3 rounded-2xl border border-slate-100 shadow-xl pointer-events-auto">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${isReady ? 'bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]' : 'bg-slate-300'}`}></div>
@@ -303,6 +315,15 @@ export const CameraView: React.FC = () => {
                 {isReady ? 'Camera Live' : 'Connecting'}
               </span>
             </div>
+          </div>
+
+          {/* Active model badge — always visible so it's unambiguous during testing */}
+          <div className={`px-4 py-2 rounded-2xl border shadow-lg text-xs font-black uppercase tracking-wider pointer-events-auto
+            ${useLandmarkModel
+              ? 'bg-violet-500 text-white border-violet-400 shadow-violet-500/30'
+              : 'bg-white/90 text-slate-600 border-slate-100'
+            }`}>
+            {useLandmarkModel ? '🤙 Landmark Model' : '🧠 CNN Model'}
           </div>
         </div>
       </div>
