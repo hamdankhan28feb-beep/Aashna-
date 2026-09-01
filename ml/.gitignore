@@ -1,0 +1,58 @@
+# Python & virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+ml/venv/
+
+# Large data arrays (landmarks, features, etc.)
+*.npy
+*.npz
+
+# Trained models (ALL formats – these are the main ones to ignore)
+*.h5
+*.keras
+*.tflite
+*.pb
+*.onnx
+*.pkl
+*.joblib
+
+# Weight shards (like group1-shard*.bin from your frontend, but also catch any in ml)
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Ignore the data folders – keep only .gitkeep to preserve folder structure
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+data/landmarks/*
+!data/landmarks/.gitkeep
+
+# Ignore the entire models folder (contains .keras files) – keep .gitkeep only
+models/*
+!models/.gitkeep
+
+# Optional: ignore scripts & tests if they only contain dev code (uncomment if needed)
+# scripts/
+# tests/
+
+# Verification results (JSON) – usually small, can keep if you want, otherwise uncomment
+# verification_results.json
+
+# OS / IDE / logs
+.DS_Store
+.vscode/
+.idea/
+*.log
+.env
+.ipynb_checkpoints/
+*.ipynb

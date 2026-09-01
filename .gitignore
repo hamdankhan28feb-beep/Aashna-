@@ -1,55 +1,113 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-
-
-# Build outputs
-frontend/dist/
-frontend/build/
-backend/dist/
-
-# ML - dataset & trained artifacts are large, don't commit them
-ml/data/raw/*
-!ml/data/raw/.gitkeep
-ml/data/processed/*
-!ml/data/processed/.gitkeep
-ml/venv/
-*.h5
-*.tflite
-
-# Python
-
-
-# OS / editor
+# ============================================
+#  OS / Editor / Logs
+# ============================================
 .DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
 .vscode/
 .idea/
-*.log
+*.suo
+*.sw?
+*.swp
 
-# Firebase
-.firebase/
+# ============================================
+#  Environment & Secrets
+# ============================================
+.env
+.env.local
+.env.*.local
 firebase-debug.log
+.firebase/
 
-# Frontend specific ignored files/folders
+# ============================================
+#  Python Virtual Environments (Root & ML)
+# ============================================
+.venv/
+venv/
+env/
+ml/venv/
+ml/.venv/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/  # Python build dirs
+
+# ============================================
+#  Backend (Node.js)
+# ============================================
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/coverage/
+backend/.nyc_output/
+backend/*.tsbuildinfo
+
+# ============================================
+#  Frontend (Node.js + Vite)
+# ============================================
 frontend/node_modules/
-frontend/public/asl/models/
-frontend/public/asl/bg-pattern.jpg
-frontend/public/asl/logo.png
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.tsbuildinfo
+frontend/.vite/
 
-# ML specific ignored data folders
-ml/data/
-ml/models/
+# ============================================
+#  Frontend: Large Model Binaries (YOLO, ASL, etc.)
+# ============================================
+frontend/public/models/
+
+# ============================================
+#  ML / Data Science: Large Artifacts (CRITICAL)
+# ============================================
+# Ignore ALL raw/processed data (keep .gitkeep only)
+ml/data/raw/*
+!ml/data/raw/.gitkeep
+
+ml/data/processed/*
+!ml/data/processed/.gitkeep
+
+ml/data/landmarks/*
+!ml/data/landmarks/.gitkeep
+
+# Ignore all trained models (keep .gitkeep only)
+ml/models/*
+!ml/models/.gitkeep
+
+# Ignore dev scripts and tests if they are just utility code
 ml/scripts/
 ml/tests/
 
-# ML (large data, models, scripts, and tests - keep README.md and requirements.txt)
+# ============================================
+#  ML: Global binary / weight catches
+# ============================================
+*.npy
+*.npz
+*.h5
+*.keras
+*.tflite
+*.pb
+*.onnx
+*.pkl
+*.joblib
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
 
-# Common dev junk
-.DS_Store
-__pycache__/
-*.pyc
-.env
-venv/
-.venv/
+# ============================================
+#  Keep small config files (OPTIONAL - uncomment if needed)
+# ============================================
+# !ml/data/landmarks/classes.txt
+# !ml/data/processed/classes.txt
+# !ml/data/processed/label_mapping.json
+# !ml/verification_results.json
