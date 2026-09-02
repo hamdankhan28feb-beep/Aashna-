@@ -10,6 +10,7 @@ import { ModelToggle } from './components/Controls/ModelToggle';
 import { TabBar, type TabMode } from './components/Navigation/TabBar';
 import { FlashcardsView } from './components/Flashcards/FlashcardsView';
 import { QuizView } from './components/Quiz/QuizView';
+import { NumbersGameView } from './components/NumbersGame/NumbersGameView';
 import { SpellingView } from './components/Spelling/SpellingView';
 import { RoleplayView } from './components/Roleplay/RoleplayView';
 import { AuthView } from './components/Auth/AuthView';
@@ -44,6 +45,10 @@ function App() {
             ) : activeTab === 'flashcards' ? (
               <div className="w-full">
                 <FlashcardsView />
+              </div>
+            ) : activeTab === 'numbers_game' ? (
+              <div className="w-full">
+                <NumbersGameView />
               </div>
             ) : activeTab === 'quiz' ? (
               <div className="w-full">

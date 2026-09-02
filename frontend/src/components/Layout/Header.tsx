@@ -24,9 +24,6 @@ export const Header: React.FC = () => {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <button className="px-5 py-2.5 rounded-full bg-slate-50 border-2 border-slate-100 text-sm font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:bg-teal-50 hover:border-teal-200 hover:text-teal-700 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300">
-          <Globe className="w-4 h-4" /> EN
-        </button>
         <button
           onClick={() => {
             import('../../lib/firebase').then(({ auth }) => {
