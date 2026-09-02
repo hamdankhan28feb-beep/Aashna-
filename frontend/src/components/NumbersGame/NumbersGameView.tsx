@@ -3,18 +3,19 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
 import { CameraView } from '../Camera/CameraView';
 import { clearText, setSignMode, setTargetLetter } from '../../store/predictionSlice';
-import { playSuccessSound, playBossWinSound } from '../../utils/audio';
+import { playSuccessSound, playBossWinSound, playErrorSound } from '../../utils/audio';
 import { getProgress, addXp, UserProgress } from '../../services/progressService';
 
 // Module-level state to persist progress when component unmounts (e.g. switching tabs)
-let savedState = {
+const INITIAL_SAVED_STATE = () => ({
   level: 1,
   targetNumber: 1,
   questionCount: 0,
   missingSequence: [] as number[],
   missingIndex: 0,
   mathEq: { a: 0, b: 0, op: '+' as '+' | '-' }
-};
+});
+let savedState = INITIAL_SAVED_STATE();
 
 export const NumbersGameView: React.FC = () => {
   const dispatch = useDispatch();
@@ -23,6 +24,8 @@ export const NumbersGameView: React.FC = () => {
   const [level, setLevel] = useState(savedState.level);
   const [targetNumber, setTargetNumber] = useState(savedState.targetNumber);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showWrong, setShowWrong] = useState(false);   // Bug 3: wrong-answer feedback
+  const [showHint, setShowHint] = useState(false);     // Bug 2: answer hidden by default
   const [questionCount, setQuestionCount] = useState(savedState.questionCount);
   
   // Level 2 state
@@ -49,23 +52,24 @@ export const NumbersGameView: React.FC = () => {
   useEffect(() => {
     dispatch(setSignMode('numbers')); 
     dispatch(clearText());
+    setShowHint(false);  // hide hint when level changes
+    setShowWrong(false); // clear wrong-answer banner when level changes
     
-    // Only generate new sequence/math if we haven't already generated one for this level
+    // Generate appropriate question whenever level changes
     if (level === 1) {
       dispatch(setTargetLetter(targetNumber.toString()));
-    } else if (level === 2 && missingSequence.length === 0) {
+    } else if (level === 2) {
       generateSequence();
-    } else if (level === 3 && mathEq.a === 0) {
+    } else if (level === 3) {
       generateMath('+');
-    } else if (level === 4 && mathEq.a === 0) {
+    } else if (level === 4) {
       generateMath('-');
-    } else {
-       // Restore target letter for current state
-       dispatch(setTargetLetter(targetNumber.toString()));
     }
     
     return () => {
       dispatch(setTargetLetter(null));
+      // Bug 1 fix: reset persisted state on unmount so next mount starts at level 1
+      savedState = INITIAL_SAVED_STATE();
     }
   }, [level]); // We only want this to run when LEVEL changes initially or component mounts.
 
@@ -77,6 +81,8 @@ export const NumbersGameView: React.FC = () => {
     setMissingIndex(hiddenIdx);
     setTargetNumber(seq[hiddenIdx]);
     dispatch(setTargetLetter(seq[hiddenIdx].toString()));
+    setShowHint(false);   // Bug 2: hide hint for new question
+    setShowWrong(false);  // Bug 3: clear error banner for new question
   };
 
   const generateMath = (op: '+' | '-') => {
@@ -93,6 +99,8 @@ export const NumbersGameView: React.FC = () => {
     setMathEq({ a, b, op });
     setTargetNumber(ans);
     dispatch(setTargetLetter(ans.toString()));
+    setShowHint(false);   // Bug 2: hide hint for new question
+    setShowWrong(false);  // Bug 3: clear error banner for new question
   };
 
   useEffect(() => {
@@ -100,6 +108,7 @@ export const NumbersGameView: React.FC = () => {
       const lastChar = text[text.length - 1];
       if (lastChar === targetNumber.toString() && !showSuccess) {
         setShowSuccess(true);
+        setShowWrong(false);
         playSuccessSound();
         
         // Grant XP for correct answer
@@ -149,15 +158,22 @@ export const NumbersGameView: React.FC = () => {
             }
           }
         }, 1500);
+      } else if (lastChar !== targetNumber.toString() && !showSuccess && !showWrong) {
+        // Bug 3 fix: wrong answer detected — show error banner and clear after pause
+        setShowWrong(true);
+        playErrorSound();
+        setTimeout(() => {
+          setShowWrong(false);
+          dispatch(clearText());
+        }, 1500);
       }
     }
-  }, [text, targetNumber, showSuccess, level, questionCount, dispatch]);
+  }, [text, targetNumber, showSuccess, showWrong, level, questionCount, dispatch]);
 
   const getLevelTitle = () => {
     if (level === 1) return "Count with me!";
     if (level === 2) return "Fill the Blank Number!";
-    if (level === 3) return "Addition Time!";
-    return "Subtraction Time!";
+    return mathEq.op === '-' ? "Subtraction Time!" : "Addition Time!";
   };
 
   return (
@@ -243,16 +259,21 @@ export const NumbersGameView: React.FC = () => {
               </>
             )}
 
-            {level > 1 && (
-                <div className="flex justify-center gap-3 mb-8 w-full">
-                   {[1, 2, 3, 4].map((_, i) => (
-                      <div key={i} className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-xl shadow-lg border-2 border-white/50 ${
-                        i === 0 ? 'bg-green-500' : i === 1 ? 'bg-rose-500' : i === 2 ? 'bg-purple-500 scale-110' : 'bg-blue-500'
-                      }`}>
-                         {i === 2 ? targetNumber : (targetNumber + i + 1) % 9 + 1}
-                      </div>
-                   ))}
-                </div>
+            {/* Bug 2 fix: Hint button — hidden by default, toggles on click, resets on new question */}
+            {level > 1 && !showSuccess && (
+              <div className="flex flex-col items-center gap-2 mb-4 w-full">
+                <button
+                  onClick={() => setShowHint(h => !h)}
+                  className="px-5 py-2 rounded-full bg-amber-50 border-2 border-amber-200 text-amber-600 font-bold text-sm hover:bg-amber-100 hover:border-amber-300 transition-all duration-200 active:scale-95"
+                >
+                  {showHint ? '🙈 Hide Hint' : '💡 Show Hint'}
+                </button>
+                {showHint && (
+                  <div className="bg-amber-50 border-4 border-amber-200 text-amber-700 font-black px-6 py-3 rounded-2xl text-2xl">
+                    Answer: {targetNumber}
+                  </div>
+                )}
+              </div>
             )}
 
             {showSuccess ? (
@@ -260,11 +281,12 @@ export const NumbersGameView: React.FC = () => {
                 <span>🎉 Perfect!</span>
                 {earnedXp && <span className="text-xl">+{earnedXp} XP</span>}
               </div>
-            ) : (
-              <div className="bg-cyan-50 border-4 border-cyan-100 text-cyan-600 font-bold px-6 py-4 rounded-2xl w-full text-lg">
-                Sign '{targetNumber}' to the camera!
+            ) : showWrong ? (
+              /* Wrong-answer banner — mirrors success banner styling in rose/red */
+              <div className="bg-rose-100 border-4 border-rose-200 text-rose-700 font-bold px-6 py-4 rounded-2xl w-full animate-bounce text-lg flex justify-between items-center">
+                <span>❌ Incorrect! Try again.</span>
               </div>
-            )}
+            ) : null}
             
           </div>
         </div>
