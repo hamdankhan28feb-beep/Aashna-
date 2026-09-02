@@ -7,7 +7,7 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-4 cursor-pointer">
         <img 
           src="/logo.png" 
-          alt="Aashna AI Logo" 
+          alt="Aashna Logo" 
           className="h-16 w-auto object-contain transform transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
@@ -15,7 +15,7 @@ export const Header: React.FC = () => {
         />
         <div className="flex flex-col justify-center">
           <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-cyan-500 tracking-tight leading-none flex items-center gap-2">
-            Aashna AI
+            Aashna
             <Sparkles className="w-5 h-5 text-cyan-500 inline-block transform transition-transform group-hover:animate-pulse group-hover:rotate-12" />
           </h1>
           <p className="text-xs font-bold text-slate-400 mt-1 hidden lg:block transition-colors group-hover:text-teal-500">

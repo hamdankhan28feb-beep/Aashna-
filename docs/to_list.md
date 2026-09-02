@@ -1,4 +1,4 @@
-# To-Do — Aashna AI
+# To-Do — Aashna
 
 ## UI / UX Fixes
 
