@@ -35,28 +35,30 @@ Camera (640×480, up to 60 fps)
          │
          ▼
 [MediaPipe Hands] — landmark detection (21 3D keypoints per hand)
-         │  (hand detected → bounding box from landmarks)
-         ▼
-[Square Crop + Pad]
-  • Compute bounding box from all landmark x/y coordinates
-  • Take the larger of width/height → square region
-  • Apply 15% padding on each side
-  • Clamp to image boundaries
          │
          ▼
-[Hidden Canvas 64×64] — drawImage() resizes crop to 64×64
-         │
-         ▼
-[tf.browser.fromPixels()] → Tensor3D (64, 64, 3), uint8
-         │
-         ▼
-[modelService.predictFrame()]
-  • Cast to float32, divide by 255 (→ [0,1])
-  • expandDims(0) → (1, 64, 64, 3)
-  • net.predict() → (1, 36) softmax probability vector
-  • argmax restricted to mode range:
-      Letters mode: indices 10–35 (a–z)
-      Numbers mode: indices 0–9 (0–9)
+┌───────────────────────────────────────────────────────────┐
+│  PRIMARY PATH: Landmark MLP (landmarkModelService.ts)    │
+│                                                           │
+│  [Normalize Landmarks]                                    │
+│    • Translate so wrist (landmark 0) is origin            │
+│    • Scale by distance to middle-finger MCP (landmark 9)  │
+│    • Flatten to 63 floats (21 × 3 coords)                │
+│         │                                                 │
+│         ▼                                                 │
+│  [MLP Model: /models/landmark_model/model.json]          │
+│    • Input(63) → Dense(64,relu) → Dropout(0.2)           │
+│    • → Dense(32,relu) → Dropout(0.1)                     │
+│    • → Dense(36, softmax)                                │
+│    • argmax restricted to mode range                      │
+├───────────────────────────────────────────────────────────┤
+│  FALLBACK PATH: CNN (modelService.ts) — available but   │
+│  not actively used (useLandmarkModel hardcoded to true)  │
+│                                                           │
+│  [Square Crop + Pad from landmark bounding box]           │
+│  [Hidden Canvas 64×64] → tf.browser.fromPixels()         │
+│  [CNN Model: /models/asl_model/model.json]               │
+└───────────────────────────────────────────────────────────┘
          │
          ▼
 [Confidence & Stability Gate]
@@ -83,10 +85,11 @@ Camera (640×480, up to 60 fps)
 |---|---|---|
 | Camera capture | Client (browser) | Privacy — video never leaves the device |
 | MediaPipe Hands | Client (browser CDN) | Latency — network round-trip would break real-time UX |
-| CNN inference (TF.js) | Client (browser WebGL) | Privacy + latency; no server cost per prediction |
+| CNN inference (TF.js) | Client (browser WebGL) | Privacy + latency; no server cost per prediction (fallback path) |
+| Landmark MLP inference (TF.js) | Client (browser) | Primary recognition engine — lightweight, fast |
 | Text-to-Speech | Client (Web Speech API) | Free, no API key needed, sufficient for MVP |
 | Progress, badges, leaderboard | Client + Firebase | Firestore-backed sync; working in production |
-| Express API server | Server (Node.js) | Routes for future translation/server-TTS features |
+| AI Chat (Gemini) | Server (Node.js) → Google Gemini API | `/api/chat` is the only fully functional backend endpoint |
 
 ### Tech Stack
 
@@ -248,7 +251,7 @@ App.tsx
 │                           Spelling Bee, Roleplay, Leaderboard, Badges
 │
 ├── [Practice Tab]
-│   ├── CameraView        — MediaPipe + CNN inference pipeline (see Section 3)
+│   ├── CameraView        — MediaPipe + Landmark MLP inference (primary) + CNN (fallback)
 │   ├── ModeSwitcher      — Letters / Numbers / Phrases selector
 │   ├── OutputPanel       — current letter, confidence bar, text buffer
 │   └── ControlsBar       — Space, Backspace, Speak, Clear
@@ -299,6 +302,10 @@ Low-light adaptive correction runs before every MediaPipe call: average frame lu
 | User authentication | ⚠️ Partial | Login gate present; full production-grade session/identity verification not yet independently confirmed end-to-end |
 | Translation (multilingual) | ❌ Not implemented | Backend route returns placeholder text unchanged |
 | Backend TTS | ❌ Not implemented | Backend endpoint explicitly returns HTTP 501 |
+| AI Chat (Gemini) | ✅ Working | `chatService.ts` → `/api/chat` → Gemini API; conversation-aware with system prompt |
+| Spell Assist autocomplete | ✅ Working | Trie-based offline word autocomplete via `spellAssistService.ts` |
+| Numbers Game mode | ✅ Working | Digit recognition challenge with scoring |
+| Onboarding Tour | ✅ Working | react-joyride guided tour on first authenticated visit |
 
 ---
 
@@ -311,6 +318,7 @@ A Node.js + Express server (`backend/src/server.js`) with middleware (CORS, JSON
 | Route | Auth | Current Status |
 |---|---|---|
 | `GET /health` | No | ✅ Returns `{ status: "ok" }` |
+| `POST /api/chat` | No | ✅ **Fully functional** — Gemini AI chat via `geminiService.js` |
 | `POST /api/translate` | No | ❌ Validates input, then echoes the text unchanged |
 | `POST /api/speak` | No | ❌ Returns HTTP 501 — cloud TTS not wired |
 | `POST /api/conversations` | JWT | ❌ Returns HTTP 501 — Firestore save not wired |
@@ -326,10 +334,11 @@ Firebase Auth and Firestore are integrated and functioning on the client side:
 
 ### What is NOT Connected
 
-- The frontend makes no calls to the backend Express API in the current codebase — all working features (inference, TTS, progress, leaderboard) run entirely client-side or through Firebase directly.
+- Most backend Express API endpoints are not functional (see table above). The only exception is `/api/chat`, which is fully integrated via the Gemini API and called by the frontend's `chatService.ts`.
+- The frontend's working features (inference, TTS, progress, leaderboard) run entirely client-side or through Firebase directly, without depending on the backend.
 - The backend's own JWT-based authentication (for the `/api/conversations` routes) is separate from the frontend's Firebase Auth flow and has not been integrated with it.
 
-> **Note:** The backend server must be started separately from the frontend dev server. The frontend and its working features (including Firebase-backed progress and leaderboard) function correctly without the backend running, since no current frontend code depends on it.
+> **Note:** The backend server must be started separately from the frontend dev server. The frontend functions correctly without the backend running for all features except AI chat (`/api/chat`).
 
 ---
 

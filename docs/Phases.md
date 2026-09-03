@@ -16,29 +16,34 @@
 - [x] Downloaded ASL dataset from Kaggle (87,000 images)
 - [x] Created project folder structure
 - [x] Set up Python environment & dependencies
-- [x] Created data preprocessing script
-- [x] Trained CNN model (20 epochs)
-- [x] Achieved 98%+ accuracy
-- [x] Saved model as `asl_model.h5`
+- [x] Created data preprocessing script (`preprocess.py`)
+- [x] Trained CNN model (60 epochs with early stopping)
+- [x] Achieved 93.57% test accuracy (36-class model)
+- [x] Saved model as `asl_model.keras`
+- [x] Trained landmark MLP model (`landmark_model.keras`)
+- [x] Extracted landmarks via MediaPipe (`extract_landmarks.py`)
+- [x] Converted both models to TensorFlow.js format
 - [x] GitHub commit completed
 
 ### Deliverables:
 ```
-sign-language-bridge/
+ml/
 ├── data/
-│   ├── raw/              (87,000 images)
-│   └── processed/        (preprocessed .npy files)
+│   ├── raw/                  (87,000 images across 36 classes)
+│   ├── processed/            (X_train, y_train, X_test, y_test .npy + label_mapping.json)
+│   └── landmarks/            (X_landmarks, y_landmarks .npy from MediaPipe extraction)
 ├── models/
-│   ├── asl_model.h5      (trained model - 50MB)
-│   └── model_metadata.json
+│   ├── asl_model.keras       (CNN model — 36-class, ~2.8M params)
+│   ├── landmark_model.keras  (MLP model — 63-input, lightweight)
+│   └── verification_results.json
 ├── scripts/
-│   ├── 1_load_data.py
-│   ├── 2_preprocess.py
-│   ├── 3_train_model.py
-│   └── 4_evaluate_model.py
-├── notebooks/
-│   └── exploration.ipynb
-└── .gitignore
+│   ├── preprocess.py         (Image resize, normalize, train/test split)
+│   ├── extract_landmarks.py  (MediaPipe landmark extraction + normalization)
+│   ├── train.py              (CNN training with augmentation)
+│   ├── train_landmark_model.py (MLP training + TFJS conversion)
+│   ├── convert_to_tfjs.py    (CNN → TFJS conversion)
+│   └── augment_digits.py     (Data augmentation for underrepresented digits)
+└── requirements.txt
 ```
 
 ### Status: ✅ DONE
@@ -316,7 +321,10 @@ export function Prediction({ letter, confidence }) {
 **Status:** ✅ COMPLETE
 
 ### Current Implementation Notes:
-- The browser loads the unified TensorFlow.js model from `frontend/public/models/asl_model/model.json`.
+- The browser loads two TensorFlow.js models:
+  - **Landmark MLP** (primary): from `frontend/public/models/landmark_model/model.json` — takes 63 normalized floats from MediaPipe landmarks
+  - **CNN** (fallback): from `frontend/public/models/asl_model/model.json` — takes 64×64 normalized image
+- `useLandmarkModel` is hardcoded to `true` in the Redux slice; the CNN is available but not actively used.
 - Letter predictions are restricted to model indices 10-35 and normalized to uppercase.
 - Numbers mode is restricted to indices 0-9.
 - Predictions must meet the 0.7 confidence threshold and remain stable for one second before being appended.
@@ -613,6 +621,12 @@ export function TextToSpeech({ text }) {
 **Duration:** 3 days (Days 16-18 of Week 3)  
 **Owner:** Partner  
 **Muhammad Support:** Backend API setup
+
+**⚠ Current Status: NOT IMPLEMENTED**
+- The backend `/api/translate` endpoint exists but returns a placeholder (echoes input text).
+- Google Cloud Translation API is not yet integrated.
+- No frontend Translation component exists.
+- This phase remains pending full implementation.
 
 ### Goals:
 1. Integrate Google Translate API
@@ -988,23 +1002,32 @@ Total: 28 days (4 weeks)
 ## CURRENT STATUS 📍
 
 ```
-✅ Phase 0: COMPLETED (Model trained)
+✅ Phase 0: COMPLETED (CNN + landmark models trained, TFJS conversion done)
 ✅ Phases 1-4: COMPLETED (Model, camera, inference, and text controls)
-✅ Challenge features: COMPLETED (Quiz, Spelling Bee, Role Play, badges, leaderboard UI)
-🔄 Backend persistence: PARTIAL (Firebase and API integration remain)
-⏳ Dynamic signs and temporal phrase recognition: NEXT
+✅ Phase 5: COMPLETED (Web Speech API TTS integrated client-side)
+✅ Gamification: COMPLETED (Flashcards, Quiz, Spelling Bee, Numbers Game, 20 badges, Firebase leaderboard)
+✅ AI Chat: COMPLETED (Gemini API integrated via /api/chat)
+✅ Onboarding: COMPLETED (react-joyride guided tour on first visit)
+⚠ Phase 6: NOT IMPLEMENTED (Translation — backend stub only, no Google Translate API)
+⚠ Phase 7: NOT IMPLEMENTED (Emoji mapping — no emoji component exists)
+⚠ Phase 8: PARTIAL (Firebase Auth works client-side; backend conversation persistence returns 501)
+🔄 Backend persistence: PARTIAL (Firebase client-side works; server-side Firestore not wired)
+❌ Dynamic signs: NOT IMPLEMENTED (J/Z motion-based signs not supported)
 ```
 
 ---
 
 ## NEXT IMMEDIATE STEPS
 
-1. Configure Firebase environment variables and Firestore security rules.
-2. Add browser tests for recognition and challenge progression.
-3. Implement temporal modeling for dynamic signs such as J and Z.
+1. Implement Google Cloud Translation API in the `/api/translate` controller (Phase 6).
+2. Wire server-side conversation persistence to Firestore in `conversationController.js` (Phase 8).
+3. Implement server-side TTS via Google Cloud TTS in the `/api/speak` controller (Phase 5 extension).
+4. Configure Firestore security rules and Firebase environment variables.
+5. Add browser tests for recognition and challenge progression.
+6. Implement temporal modeling for dynamic signs such as J and Z.
 
 ---
 
 **Document Owner:** Project Manager  
-**Last Updated:** August 27, 2026
-**Next Update:** After Firebase persistence and browser test coverage are added
+**Last Updated:** September 3, 2026
+**Next Update:** After Phase 6 (Translation) and Phase 8 (conversation persistence) are implemented

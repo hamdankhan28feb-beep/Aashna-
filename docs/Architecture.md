@@ -1,8 +1,8 @@
 # 🏗️ ARCHITECTURE DOCUMENT
 ## Sign Language Bridge - Technical System Design
 
-**Document Version:** 1.1
-**Last Updated:** August 27, 2026
+**Document Version:** 1.2
+**Last Updated:** September 3, 2026
 
 ---
 
@@ -18,21 +18,32 @@
 │                    PRESENTATION LAYER (Web)                       │
 ├──────────────────────────────────────────────────────────────────┤
 │  React 18 + TypeScript + Tailwind CSS                             │
-│  ├─ Camera Component        (Webcam capture)                     │
-│  ├─ Prediction Component    (Display results)                    │
-│  ├─ Translation Component   (Show Urdu/English)                  │
-│  ├─ Emoji Component         (Emotional expression)               │
-│  └─ History Component       (Communication log)                   │
+│  ├─ AuthView              (Firebase login / Google Sign-In)      │
+│  ├─ CameraView            (Webcam capture + MediaPipe overlay)   │
+│  ├─ OutputPanel           (Recognized text + confidence bar)     │
+│  ├─ ControlsBar           (Space / Backspace / Speak / Clear)    │
+│  ├─ TabBar                (Practice, Flashcards, Quiz, etc.)     │
+│  ├─ FlashcardsView        (Letter & number flashcard decks)      │
+│  ├─ QuizView              (Duolingo-style quiz mode)             │
+│  ├─ NumbersGameView       (Number recognition challenge)         │
+│  ├─ SpellingView          (Spelling bee mode)                    │
+│  ├─ RoleplayView          (Scenario-based practice — scaffold)   │
+│  ├─ TutorialsView         (Lesson catalog with video assets)     │
+│  ├─ LeaderboardView       (Firebase-backed rankings)             │
+│  ├─ AchievementsView      (20 unique badges)                     │
+│  └─ OnboardingTour        (First-visit guided tour)              │
 └──────────────────────────────────────────────────────────────────┘
                               ↓
 ┌──────────────────────────────────────────────────────────────────┐
 │                  CLIENT-SIDE ML LAYER (Browser)                   │
 ├──────────────────────────────────────────────────────────────────┤
 │  TensorFlow.js + MediaPipe.js                                     │
-│  ├─ Hand Detection (MediaPipe)  → Detects hand positions         │
-│  ├─ CNN Model (TensorFlow.js)   → Classifies 0-9 and A-Z         │
-│  ├─ Post-processing             → Masks, normalizes, and smooths │
-│  └─ Web Speech API              → Text-to-speech                 │
+│  ├─ Hand Detection (MediaPipe)     → 21 landmarks per hand      │
+│  ├─ Landmark MLP (primary engine)  → Classifies from 63 floats  │
+│  ├─ CNN Model (fallback/available) → Classifies 64×64 images    │
+│  ├─ Spell Assist (trie-based)      → Offline word autocomplete  │
+│  ├─ Landmark Heuristics            → Finger-position hints      │
+│  └─ Web Speech API                 → Text-to-speech             │
 │                                                                    │
 │  ✨ OFFLINE FIRST: All processing happens locally (private!)     │
 └──────────────────────────────────────────────────────────────────┘
@@ -41,23 +52,24 @@
 │                     API LAYER (Backend Server)                    │
 ├──────────────────────────────────────────────────────────────────┤
 │  Node.js + Express                                                │
-│  ├─ /api/translate          → Google Translate API               │
-│  ├─ /api/speak              → Google Text-to-Speech              │
-│  ├─ /api/conversations      → Save & retrieve chats              │
-│  ├─ /api/users              → User management                    │
-│  └─ /api/signs              → Sign library & metadata            │
+│  ├─ /api/chat               → Gemini AI chat (✅ implemented)   │
+│  ├─ /api/translate          → Translation (⚠ stub/placeholder) │
+│  ├─ /api/speak              → Server TTS (⚠ 501 Not Impl.)     │
+│  ├─ /api/conversations      → Save & retrieve (⚠ 501 stub)     │
+│  ├─ /api/signs              → Sign library (hardcoded A-Z)       │
+│  └─ /health                 → Readiness probe (✅ implemented)  │
 └──────────────────────────────────────────────────────────────────┘
                               ↓
 ┌──────────────────────────────────────────────────────────────────┐
 │                    DATA & SERVICE LAYER                           │
 ├──────────────────────────────────────────────────────────────────┤
 │  External Services:                                               │
-│  ├─ Google Cloud Translation  → English ↔ Urdu                   │
-│  ├─ Google Cloud TTS          → Text-to-speech                   │
-│  ├─ Firebase Firestore        → Database                         │
-│  ├─ Firebase Auth             → User authentication              │
-│  ├─ Firebase Storage          → File storage (media)             │
-│  └─ Firebase Hosting          → Web deployment                   │
+│  ├─ Google Gemini API         → AI chat (✅ integrated)          │
+│  ├─ Google Cloud Translation  → English ↔ Urdu (⚠ not wired)  │
+│  ├─ Google Cloud TTS          → Text-to-speech (⚠ not wired)   │
+│  ├─ Firebase Firestore        → Progress, badges, leaderboard   │
+│  ├─ Firebase Auth             → User authentication (client)     │
+│  └─ Firebase Hosting          → Web deployment (planned)         │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,125 +80,135 @@
 ### 2.1 Frontend Components
 
 ```
-App
-├── Layout
-│   ├── Header
-│   │   ├── Logo
-│   │   ├── Language Selector (EN/UR)
-│   │   └── User Menu
-│   │
-│   ├── MainContent
-│   │   ├── CameraView
-│   │   │   ├── Video Stream
-│   │   │   ├── Hand Overlay (MediaPipe)
-│   │   │   ├── Confidence Indicator
-│   │   │   └── Start/Stop Button
-│   │   │
-│   │   ├── OutputPanel
-│   │   │   ├── RecognizedText
-│   │   │   ├── UrduTranslation
-│   │   │   ├── EmojiDisplay
-│   │   │   └── ConfidenceScore
-│   │   │
-│   │   ├── ControlsBar
-│   │   │   ├── SpeakButton (🔊)
-│   │   │   ├── ClearButton (🗑️)
-│   │   │   ├── CopyButton (📋)
-│   │   │   └── ShareButton (📤)
-│   │   │
-│   │   └── CommandButtons
-│   │       ├── Backspace (Delete last letter)
-│   │       ├── Space (Add space)
-│   │       └── Period (Add punctuation)
-│   │
-│   └── SideBar
-│       ├── History
-│       ├── Favorites
-│       ├── Settings
-│       └── Help
+App (wrapped in Redux Provider)
+├── AuthView (Firebase email/password + Google Sign-In)
 │
-└── Modals
-    ├── SettingsModal
-    ├── TutorialModal
-    ├── HistoryModal
-    └── ProfileModal
+├── TabBar (navigation between modes)
+│   ├── Practice Tab
+│   │   ├── CameraView
+│   │   │   ├── Video Stream (getUserMedia)
+│   │   │   ├── MediaPipe Hands Overlay (21 landmarks)
+│   │   │   ├── Adaptive Gamma Correction (low-light)
+│   │   │   └── Square Crop + Resize (64×64)
+│   │   ├── OutputPanel
+│   │   │   ├── Confidence Bar
+│   │   │   ├── Current Letter Display
+│   │   │   └── Accumulated Text Buffer
+│   │   └── ControlsBar
+│   │       ├── Space / Backspace
+│   │       ├── Speak (Web Speech API)
+│   │       └── Clear
+│   │
+│   ├── Flashcards Tab (letters A-Z + numbers 0-9 decks)
+│   ├── Numbers Game Tab (digit recognition challenge)
+│   ├── Quiz Tab (Duolingo-style multiple choice)
+│   ├── Spelling Tab (spelling bee with spell assist)
+│   ├── Roleplay Tab (scenario view — UI scaffold only)
+│   ├── Tutorials Tab (lesson catalog — videos pending)
+│   ├── Leaderboard Tab (Firebase-backed rankings)
+│   └── Achievements Tab (20 unique badges)
+│
+├── OnboardingTour (react-joyride, first-visit)
+└── Modals / Settings
+```
+
+#### Frontend Services
+```
+frontend/src/services/
+├── landmarkModelService.ts   (Primary: MediaPipe landmarks → MLP inference)
+├── modelService.ts           (Fallback: image crop → CNN inference)
+├── yoloService.ts            (Hand detection — currently unused)
+├── progressService.ts        (XP, levels, streaks, letter stats → Firestore)
+├── chatService.ts            (Client for /api/chat endpoint)
+└── spellAssistService.ts     (Offline trie-based word autocomplete)
 ```
 
 ### 2.2 Backend Components
 
 ```
-Express Server
+Express Server (backend/src/)
+├── server.js                 (Entry point: middleware + route mounting)
+│
 ├── Routes/
-│   ├── auth.js              (User login/signup)
-│   ├── predict.js           (Sign prediction)
-│   ├── translate.js         (Language translation)
-│   ├── speak.js             (Text-to-speech)
-│   ├── conversations.js     (Chat history)
-│   ├── users.js             (User profiles)
-│   └── signs.js             (Sign library)
+│   ├── chat.js               (POST /api/chat)
+│   ├── translate.js          (POST /api/translate)
+│   ├── speak.js              (POST /api/speak)
+│   ├── conversations.js      (POST + GET /api/conversations, auth required)
+│   └── signs.js              (GET /api/signs)
 │
 ├── Controllers/
-│   ├── authController.js
-│   ├── predictController.js
-│   ├── translateController.js
-│   └── ...
+│   ├── chatController.js     (✅ Gemini integration — fully functional)
+│   ├── translateController.js (⚠ Stub — returns original text)
+│   ├── speakController.js    (⚠ 501 Not Implemented)
+│   ├── conversationController.js (⚠ 501 — Firestore planned)
+│   └── signController.js     (⚠ Hardcoded A-Z alphabet list)
 │
 ├── Middleware/
-│   ├── authentication.js    (JWT verification)
-│   ├── errorHandler.js
-│   ├── corsConfig.js
-│   └── rateLimit.js
+│   ├── authentication.js     (JWT Bearer token verification)
+│   ├── errorHandler.js       (Centralized JSON error responses)
+│   └── rateLimit.js          (1000 req / 60s window)
 │
-├── Services/
-│   ├── googleTranslate.js   (Translation API)
-│   ├── googleTTS.js         (Text-to-speech)
-│   ├── firebaseDB.js        (Database operations)
-│   └── modelService.js
-│
-└── Utils/
-    ├── validators.js
-    ├── logger.js
-    └── helpers.js
+└── Services/
+    └── geminiService.js      (Google Gemini REST API integration)
 ```
 
 ---
 
 ## 3. DATA FLOW ARCHITECTURE
 
-### 3.1 Real-time Prediction Flow
+### 3.1 Real-time Prediction Flow (Current Implementation)
 
 ```
 User performs sign
         ↓
-Webcam captures frame (30 FPS)
+Webcam captures frame (up to 60 FPS)
         ↓
-MediaPipe detects hand landmarks
+Adaptive gamma correction for low-light frames
         ↓
-Extract hand keypoints (21 points per hand)
+MediaPipe Hands detects 21 landmarks (3D keypoints)
         ↓
-Normalize & preprocess
+┌─────────────────────────────────────────────┐
+│  PRIMARY PATH: Landmark MLP Model             │
+│  • Normalize landmarks (wrist = origin,        │
+│    scale by middle-finger MCP distance)        │
+│  • Flatten to 63 floats (21 × 3 coords)       │
+│  • MLP inference: Input(63) → Dense(64) →     │
+│    Dense(32) → Dense(36, softmax)              │
+├─────────────────────────────────────────────┤
+│  FALLBACK PATH: CNN Model (image-based)       │
+│  • Square crop from landmark bounding box      │
+│  • Resize to 64×64, normalize [0,1]           │
+│  • CNN inference: 4 conv blocks → dense head  │
+└─────────────────────────────────────────────┘
         ↓
-TensorFlow.js CNN model processes
+Output: 36-class softmax (0-9, a-z)
         ↓
-Model outputs: [confidence for 0-9 and a-z]
+Argmax restricted by active mode:
+  Letters mode: indices 10–35 (a–z)
+  Numbers mode: indices 0–9 (0–9)
         ↓
-Find highest confidence
-        ↓
-If confidence > 0.7 and the class is allowed for the active mode:
-    ├─ Display letter
-    ├─ Play sound (optional)
-    ├─ Add to text output
+If confidence ≥ 0.70 AND stable for 1,000 ms:
+    ├─ dispatch(appendLetter()) → text buffer
+    ├─ Play success sound (optional)
+    └─ Update XP / progress
 Else:
-    └─ Show "Uncertain"
-        ↓
-Text updates in real-time; challenge modes compare uppercase letters
+    └─ Display current prediction without committing
         ↓
 User sees result immediately
 ```
 
-### 3.2 Translation Flow
+> **Note:** The landmark MLP is the sole active engine in production
+> (`useLandmarkModel` is hardcoded to `true` in the Redux slice).
+> The CNN model remains available as a fallback but is not actively used.
+
+### 3.2 Translation Flow (NOT YET IMPLEMENTED)
 
 ```
+⚠ Status: Backend /api/translate returns a placeholder response.
+  The translateController echoes the original text as "translated".
+  Google Cloud Translation API integration is planned but not wired.
+
+Planned flow (when implemented):
 Recognized text in English
         ↓
 Send to Google Translate API
@@ -213,25 +235,22 @@ Audio generated
 Play sound to speaker
 ```
 
-### 3.4 Conversation Save Flow
+### 3.4 Conversation Save Flow (NOT YET IMPLEMENTED)
 
 ```
+⚠ Status: Backend /api/conversations returns 501 Not Implemented.
+  Firestore integration is planned but not yet wired.
+  Currently, progress (XP, badges, leaderboard) is saved client-side
+  via progressService.ts → Firebase Firestore directly from the frontend.
+
+Planned flow (when implemented):
 User performs signs → Text generated
         ↓
-Every 30 seconds OR on "Save" button
+On "Save" button
         ↓
-Package data:
-{
-  userId: "user123",
-  messages: [
-    { text: "Hello", urdu: "السلام علیکم", timestamp: ... },
-    { text: "How are you", urdu: "آپ کیسے ہو", timestamp: ... }
-  ],
-  duration: 120 (seconds),
-  date: "2026-08-07"
-}
+Package data (userId, messages, duration, date)
         ↓
-Send to Firebase Firestore
+Send to Firebase Firestore via backend API
         ↓
 Conversation saved to database
         ↓
@@ -330,126 +349,118 @@ sign-language-bridge/
 
 ## 5. API ENDPOINTS
 
-### 5.1 Authentication
+> **Implementation status key:** ✅ = Fully implemented, ⚠ = Stub/placeholder, ❌ = Not implemented
+
+### 5.1 Health Check ✅
 ```
-POST   /api/auth/signup
-       { email, password, name }
-       → { userId, token, user }
-
-POST   /api/auth/login
-       { email, password }
-       → { token, user }
-
-POST   /api/auth/logout
-       → { status: "logged out" }
-
-GET    /api/auth/me
-       (requires auth token)
-       → { user }
+GET    /health
+       → { status: "ok" }
 ```
 
-### 5.2 Prediction
+### 5.2 Chat (Gemini AI) ✅
 ```
-POST   /api/predict
-       { imageBase64, model: "asl-letters" }
-       → { 
-           letter: "A",
-           confidence: 0.97,
-           alternatives: [
-             { letter: "B", confidence: 0.02 },
-             { letter: "C", confidence: 0.01 }
-           ]
-         }
+POST   /api/chat
+       { message: "Hello", history: [{ role, parts }] }
+       → { reply: "Hi there! How can I help..." }
+
+Implementation: chatController.js → geminiService.js → Google Gemini REST API
+Model: gemini-flash-latest (configurable via GEMINI_MODEL env)
 ```
 
-### 5.3 Translation
+### 5.3 Translation ⚠ (Placeholder)
 ```
 POST   /api/translate
        { text: "Hello", fromLang: "en", toLang: "ur" }
-       → { translated: "السلام علیکم" }
+       → { translated: "Hello" }   ← currently echoes original text
 
-POST   /api/translate/batch
-       { texts: ["Hello", "Goodbye"], toLanguage: "ur" }
-       → { results: [{ original, translated }] }
+⚠ Google Cloud Translation API is not yet integrated.
+  The controller returns the input text as the "translated" result.
 ```
 
-### 5.4 Text-to-Speech
+### 5.4 Text-to-Speech ⚠ (501 Not Implemented)
 ```
 POST   /api/speak
        { text: "Hello", language: "en-US" }
-       → { audioUrl: "data:audio/mp3;...", duration: 2.5 }
+       → 501 Not Implemented
+
+⚠ Google Cloud TTS is not yet integrated.
+  The frontend uses the browser's Web Speech API for TTS instead.
 ```
 
-### 5.5 Conversations
+### 5.5 Conversations ⚠ (501 Not Implemented)
 ```
-POST   /api/conversations
+POST   /api/conversations     (requires JWT Authorization header)
        { messages: [...], title: "Morning" }
-       → { conversationId, createdAt }
+       → 501 Not Implemented
 
-GET    /api/conversations
-       (paginated)
-       → { conversations: [], total: 42, page: 1 }
+GET    /api/conversations     (requires JWT Authorization header)
+       → 501 Not Implemented
 
-GET    /api/conversations/:id
-       → { conversation details }
-
-PUT    /api/conversations/:id
-       { title, isPublic }
-       → { updated conversation }
-
-DELETE /api/conversations/:id
-       → { status: "deleted" }
+⚠ Firestore integration is planned but not yet wired.
+  Progress tracking currently goes client-side via progressService.ts.
 ```
 
-### 5.6 Users
-```
-GET    /api/users/:userId
-       → { user profile }
-
-PUT    /api/users/:userId
-       { name, preferences, ... }
-       → { updated user }
-
-GET    /api/users/:userId/statistics
-       → { stats: totalConversations, practiceHours, ... }
-
-GET    /api/users/:userId/progress
-       → { signsLearned, accuracy, badges, ... }
-```
-
-### 5.7 Signs
+### 5.6 Signs ⚠ (Hardcoded Data)
 ```
 GET    /api/signs
-       (query: category, difficulty, search)
-       → { signs: [...], total: 250 }
+       → { signs: [{ letter: "A", category: "letter" }, ...] }
 
-GET    /api/signs/:id
-       → { sign details }
+⚠ Returns a hardcoded list of A-Z letters with category "letter".
+  Firestore signs/ collection integration is planned.
+```
 
-GET    /api/signs/search?q=hello
-       → { matching signs }
+### 5.7 Authentication (Client-Side Only)
+```
+⚠ No backend auth endpoints exist (no /api/auth/*).
+  Authentication is handled entirely client-side via Firebase Auth.
+  The backend's requireAuth middleware validates JWT tokens
+  but is only applied to /api/conversations (currently 501).
 ```
 
 ---
 
 ## 6. MODEL ARCHITECTURE
 
-### 6.1 CNN Model (36-Class Recognition)
+### 6.1 Landmark MLP Model (Primary Recognition Engine)
 
 ```
-Input: 64x64x3 (RGB image)
+Input: 63 floats (21 landmarks × 3 coordinates, normalized)
     ↓
-Conv2D(32, 3x3) + ReLU
+Normalization:
+  • Translate so wrist (landmark 0) is origin
+  • Scale by distance to middle-finger MCP (landmark 9)
     ↓
-BatchNorm + MaxPool(2x2)
+Dense(64, ReLU)
     ↓
-Conv2D(64, 3x3) + ReLU
+Dropout(0.2)
     ↓
-BatchNorm + MaxPool(2x2)
+Dense(32, ReLU)
     ↓
-Conv2D(128, 3x3) + ReLU
+Dropout(0.1)
     ↓
-BatchNorm + MaxPool(2x2)
+Dense(36, Softmax)
+    ↓
+Output: Probability distribution over 0-9 and a-z
+```
+
+**Parameters:**
+- Lightweight MLP (~5K parameters)
+- Size: < 1 MB
+- Input: Normalized MediaPipe landmarks (not images)
+- This is the sole active recognition engine in production
+
+### 6.2 CNN Model (Image-Based Fallback)
+
+```
+Input: 64x64x3 (RGB image, normalized [0,1])
+    ↓
+Conv2D(32, 3x3) + ReLU + BatchNorm + MaxPool(2x2)
+    ↓
+Conv2D(64, 3x3) + ReLU + BatchNorm + MaxPool(2x2)
+    ↓
+Conv2D(128, 3x3) + ReLU + BatchNorm + MaxPool(2x2)
+    ↓
+Conv2D(256, 3x3) + ReLU + BatchNorm + MaxPool(2x2)
     ↓
 Flatten
     ↓
@@ -457,28 +468,28 @@ Dense(256) + ReLU + Dropout(0.5)
     ↓
 Dense(128) + ReLU + Dropout(0.5)
     ↓
-    Dense(36) + Softmax
+Dense(36) + Softmax
     ↓
 Output: Probability distribution over 0-9 and a-z
 ```
 
 **Parameters:**
-- Total: ~500K parameters
+- Total: ~2.8M parameters
 - Size: ~50 MB (Keras) → ~15 MB (TensorFlow.js)
-- Accuracy: 98%+
+- Test Accuracy: 93.57% (held-out test set, 36 classes)
 - Inference Time: 50-100ms
+- Note: 4 conv blocks (not 3); available as fallback but not actively used
 
-### 6.2 Hand Detection (MediaPipe Holistic)
+### 6.3 Hand Detection (MediaPipe Hands)
 
 ```
 Input: RGB frame from webcam
     ↓
-MediaPipe processes
+MediaPipe Hands processes
     ↓
 Output:
   - 21 hand landmarks per hand
   - x, y, z coordinates for each point
-  - Confidence score
   - Hand presence detection
 ```
 
@@ -498,13 +509,15 @@ Artifacts:
 ├── js/main.{hash}.js
 ├── css/style.{hash}.css
 ├── models/
-│   └── asl_model/
+│   ├── asl_model/            (CNN model — fallback)
+│   │   ├── model.json
+│   │   └── group1-shard1of1.bin
+│   └── landmark_model/      (MLP model — primary)
 │       ├── model.json
-│       └── weights.bin
-└── public/
-    ├── favicon.ico
-    ├── images/
-    └── data/
+│       └── group1-shard1of1.bin
+├── asl/                     (ASL dataset images for flashcards)
+├── videos/                  (Tutorial video assets)
+└── bg-pattern.jpg, logo.png
     ↓
 Deploy to Firebase Hosting
     ↓
@@ -517,10 +530,11 @@ Available at: https://sign-language-bridge.web.app
 Node.js Express App
     ↓
 Environment variables (.env):
-├── GOOGLE_CLOUD_API_KEY
-├── FIREBASE_DATABASE_URL
-├── JWT_SECRET
 ├── PORT=3000
+├── FRONTEND_ORIGIN=http://localhost:5173
+├── JWT_SECRET
+├── GOOGLE_CLOUD_API_KEY     (for Gemini API)
+├── GEMINI_MODEL             (default: gemini-flash-latest)
 └── NODE_ENV=production
     ↓
 Docker container (optional):
@@ -557,24 +571,20 @@ Update production
 ## 8. TECHNOLOGY STACK
 
 | Layer | Technology | Purpose |
-|-------|-----------|---------|
+|-------|-----------|----------|
 | **Frontend** | React 18, TypeScript, Vite | Web UI |
 | **Styling** | Tailwind CSS | Design system |
-| **State Mgmt** | Redux Toolkit | App state |
-| **ML/AI** | TensorFlow.js | Model inference |
-| **Hand Detection** | MediaPipe JS | Hand landmarks |
-| **Audio** | Web Audio API | Sound playback |
+| **State Mgmt** | Redux Toolkit | App state (prediction, text, mode) |
+| **ML/AI (Primary)** | TensorFlow.js + MediaPipe Hands | Landmark MLP inference |
+| **ML/AI (Fallback)** | TensorFlow.js | CNN image-based inference |
+| **Audio** | Web Speech API + Web Audio API | TTS + sound effects |
 | **Backend** | Node.js, Express | API server |
-| **Database** | Firebase Firestore | NoSQL database |
-| **Auth** | Firebase Auth | User authentication |
-| **Storage** | Firebase Cloud Storage | File storage |
-| **Translation** | Google Cloud Translation | Language conversion |
-| **TTS** | Google Cloud TTS | Text-to-speech |
-| **Hosting** | Firebase Hosting | Frontend deployment |
-| **Server** | Google Cloud Run | Backend deployment |
+| **AI Chat** | Google Gemini API | Conversational AI via /api/chat |
+| **Database** | Firebase Firestore | Progress, badges, leaderboard (client-side) |
+| **Auth** | Firebase Auth | User authentication (client-side) |
+| **Hosting** | Firebase Hosting | Frontend deployment (planned) |
 | **Version Control** | Git, GitHub | Code management |
-| **CI/CD** | GitHub Actions | Automation |
-| **Monitoring** | Google Cloud Logging | System monitoring |
+| **Onboarding** | react-joyride | First-visit guided tour |
 
 ---
 
@@ -628,8 +638,9 @@ Database:
 
 ```
 Level 1: Browser Cache
-├─ Models (asl_model: 15MB, cached)
+├─ Models (landmark_model: <1MB + asl_model: ~15MB, cached)
 ├─ Static assets (HTML, CSS, JS)
+├─ ASL dataset images (flashcard reference)
 └─ User preferences
 
 Level 2: CDN Cache
@@ -768,5 +779,5 @@ Scenario: Database corruption
 ---
 
 **Document Owner:** Architecture Team  
-**Last Updated:** August 7, 2026  
-**Next Review:** August 14, 2026
+**Last Updated:** September 3, 2026  
+**Next Review:** After backend stub endpoints are fully implemented
