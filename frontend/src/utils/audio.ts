@@ -58,6 +58,30 @@ export const playBossWinSound = () => {
   }
 };
 
+// Text-to-speech via the Web Speech API — the same pipeline ControlsBar's
+// Speak button uses, wrapped for reuse. Cancels any ongoing speech first so
+// consecutive bot replies don't queue up and play out of sync.
+export const speakText = (text: string) => {
+  try {
+    if (!text || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.error("Speech error:", e);
+  }
+};
+
+// Stop any in-progress speech (e.g. when muting the bot's voice).
+export const stopSpeaking = () => {
+  try {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  } catch (e) {
+    console.error("Speech error:", e);
+  }
+};
+
 export const playErrorSound = () => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;

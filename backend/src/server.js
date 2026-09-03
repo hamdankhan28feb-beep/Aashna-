@@ -8,6 +8,7 @@ import translateRoutes from "./routes/translate.js";
 import speakRoutes from "./routes/speak.js";
 import conversationRoutes from "./routes/conversations.js";
 import signRoutes from "./routes/signs.js";
+import chatRoutes from "./routes/chat.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ app.use("/api/translate", translateRoutes);
 app.use("/api/speak", speakRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/signs", signRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.use(errorHandler);
 
