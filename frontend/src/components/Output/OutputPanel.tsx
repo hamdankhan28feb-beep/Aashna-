@@ -23,7 +23,7 @@ export const OutputPanel: React.FC = () => {
       <div className="absolute -top-6 -right-6 w-20 h-20 bg-yellow-300/30 rounded-full blur-2xl -z-10"></div>
       <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-teal-400/20 rounded-full blur-3xl -z-10"></div>
 
-      <div className="w-full bg-white rounded-[2.5rem] border-4 lg:border-8 border-teal-100 shadow-[0_20px_50px_-12px_rgba(20,184,166,0.2)] overflow-hidden flex flex-col relative transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_20px_50px_-12px_rgba(20,184,166,0.3)]">
+      <div data-tour="output-panel" className="w-full bg-white rounded-[2.5rem] border-4 lg:border-8 border-teal-100 shadow-[0_20px_50px_-12px_rgba(20,184,166,0.2)] overflow-hidden flex flex-col relative transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_20px_50px_-12px_rgba(20,184,166,0.3)]">
         <div className="p-5 border-b border-teal-50 bg-slate-50/50 flex justify-between items-center">
           <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-orange-400 animate-pulse"></div>

@@ -1,7 +1,12 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  /** Opens the guided tour — when absent, the help button is hidden. */
+  onHelpClick?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onHelpClick }) => {
   return (
     <header className="group w-full max-w-[85rem] mx-auto mt-4 bg-white/90 backdrop-blur-xl border-4 border-white shadow-xl shadow-teal-500/10 hover:shadow-2xl hover:shadow-teal-500/20 hover:-translate-y-1 py-3 px-6 flex items-center justify-between sticky top-4 z-50 transition-all duration-300 rounded-[2rem]">
       <div className="flex items-center gap-4 cursor-pointer">
@@ -24,6 +29,16 @@ export const Header: React.FC = () => {
         </div>
       </div>
       <div className="flex items-center gap-4">
+        {onHelpClick && (
+          <button
+            onClick={onHelpClick}
+            title="Help — replay the guided tour"
+            aria-label="Help — replay the guided tour"
+            className="w-11 h-11 rounded-full bg-teal-50 border-2 border-teal-100 text-teal-600 font-black text-xl leading-none flex items-center justify-center cursor-pointer hover:bg-teal-100 hover:border-teal-200 hover:text-teal-700 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300"
+          >
+            ?
+          </button>
+        )}
         <button
           onClick={() => {
             import('../../lib/firebase').then(({ auth }) => {

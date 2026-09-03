@@ -294,7 +294,7 @@ export const CameraView: React.FC = () => {
 
   return (
     <div className="w-full flex flex-col gap-4 relative animate-float">
-      <div className="relative w-full aspect-video bg-white rounded-[3rem] overflow-hidden border-8 border-teal-100 shadow-[0_20px_50px_-12px_rgba(20,184,166,0.3)] flex items-center justify-center transform transition-transform hover:scale-[1.01]">
+      <div data-tour="camera-view" className="relative w-full aspect-video bg-white rounded-[3rem] overflow-hidden border-8 border-teal-100 shadow-[0_20px_50px_-12px_rgba(20,184,166,0.3)] flex items-center justify-center transform transition-transform hover:scale-[1.01]">
         {!isReady && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-6 bg-slate-50/80 backdrop-blur-sm z-10">
             <div className="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin shadow-lg"></div>
@@ -318,7 +318,7 @@ export const CameraView: React.FC = () => {
           </div>
 
           {/* Active model badge — always visible so it's unambiguous during testing */}
-          <div className={`px-4 py-2 rounded-2xl border shadow-lg text-xs font-black uppercase tracking-wider pointer-events-auto
+          <div data-tour="model-badge" className={`px-4 py-2 rounded-2xl border shadow-lg text-xs font-black uppercase tracking-wider pointer-events-auto
             ${useLandmarkModel
               ? 'bg-violet-500 text-white border-violet-400 shadow-violet-500/30'
               : 'bg-white/90 text-slate-600 border-slate-100'

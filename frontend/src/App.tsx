@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { MainLayout } from './components/Layout/MainLayout';
@@ -15,14 +15,36 @@ import { RoleplayView } from './components/Roleplay/RoleplayView';
 import { AuthView } from './components/Auth/AuthView';
 import { LeaderboardView } from './components/Leaderboard/LeaderboardView';
 import { AchievementsView } from './components/Achievements/AchievementsView';
+import { OnboardingTour } from './components/Tour/OnboardingTour';
+
+// localStorage flag marking that the user has seen (or dismissed) the guided
+// tour, so it only auto-starts on their very first visit.
+const TOUR_SEEN_KEY = 'hasSeenAashnaTour';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabMode>('practice');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [tourRunning, setTourRunning] = useState(false);
+
+  // The tour highlights elements that only exist in the Practice tab, so
+  // always return there before starting (covers replays from other tabs).
+  const startTour = () => {
+    setActiveTab('practice');
+    setTourRunning(true);
+  };
+
+  // Auto-start on a user's very first authenticated visit.
+  useEffect(() => {
+    if (isAuthenticated && !localStorage.getItem(TOUR_SEEN_KEY)) {
+      localStorage.setItem(TOUR_SEEN_KEY, 'true');
+      setActiveTab('practice');
+      setTourRunning(true);
+    }
+  }, [isAuthenticated]);
 
   return (
     <Provider store={store}>
-      <MainLayout>
+      <MainLayout onHelpClick={isAuthenticated ? startTour : undefined}>
         {!isAuthenticated ? (
           <AuthView onLogin={() => setIsAuthenticated(true)} />
         ) : (
@@ -69,6 +91,8 @@ function App() {
                 <AchievementsView />
               </div>
             )}
+
+            <OnboardingTour run={tourRunning} onFinish={() => setTourRunning(false)} />
           </div>
         )}
       </MainLayout>

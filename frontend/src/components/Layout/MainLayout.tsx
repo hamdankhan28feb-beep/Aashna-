@@ -3,12 +3,14 @@ import { Header } from './Header';
 
 interface MainLayoutProps {
   children: React.ReactNode;
+  /** Opens the guided tour — provided only when the user is authenticated. */
+  onHelpClick?: () => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+export const MainLayout: React.FC<MainLayoutProps> = ({ children, onHelpClick }) => {
   return (
     <div className="min-h-screen flex flex-col selection:bg-teal-200 selection:text-teal-900">
-      <Header />
+      <Header onHelpClick={onHelpClick} />
       <main className="flex-1 w-full max-w-[90rem] mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-6 lg:gap-8">
         {children}
       </main>

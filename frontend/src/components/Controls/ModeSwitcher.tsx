@@ -24,7 +24,7 @@ export const ModeSwitcher: React.FC = () => {
   }
 
   return (
-    <div className="flex bg-white/60 backdrop-blur-md p-2 rounded-3xl border border-white/50 shadow-sm w-full md:w-max mx-auto lg:mx-0">
+    <div data-tour="mode-switcher" className="flex bg-white/60 backdrop-blur-md p-2 rounded-3xl border border-white/50 shadow-sm w-full md:w-max mx-auto lg:mx-0">
       {modes.map((mode) => {
         const isActive = currentMode === mode.id;
         return (
