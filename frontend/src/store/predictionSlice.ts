@@ -20,7 +20,7 @@ const initialState: PredictionState = {
   signMode: 'letters',
   targetLetter: null,
   currentHint: null,
-  useLandmarkModel: false,  // CNN model is the default
+  useLandmarkModel: true,  // Landmark model (MediaPipe landmarks → MLP) is the sole recognition engine — no UI to switch back to CNN
 };
 
 const predictionSlice = createSlice({

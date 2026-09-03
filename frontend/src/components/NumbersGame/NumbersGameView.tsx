@@ -6,14 +6,87 @@ import { clearText, setSignMode, setTargetLetter } from '../../store/predictionS
 import { playSuccessSound, playBossWinSound, playErrorSound } from '../../utils/audio';
 import { getProgress, addXp, UserProgress } from '../../services/progressService';
 
+type Difficulty = 'easy' | 'medium' | 'hard';
+type MathOp = '+' | '-' | '×' | '÷';
+// Independent game modes: counting (levels 1-2) vs. math challenge (level 3)
+type GameMode = 'counting' | 'math';
+
+interface MathEquation {
+  a: number;
+  b: number;
+  op: MathOp;
+  answer: number;
+}
+
+const ALL_OPERATIONS: MathOp[] = ['+', '-', '×', '÷'];
+
+/**
+ * Generate a single math question with difficulty-scaled operands and
+ * single-digit answers (the user signs the answer, not the operands —
+ * the ML prediction target is a single character, so answers must stay ≤ 9).
+ *
+ * Division is guaranteed evenly-divisible (dividend = quotient × divisor),
+ * so no remainders or decimals ever appear.
+ *
+ * Number ranges chosen per level:
+ *   easy   — operands 1-5,  products/quotients 1-6
+ *   medium — operands 2-7,  products/quotients 4-9
+ *   hard   — operands 2-9,  products/quotients 4-9 (retry if product > 9)
+ */
+function generateQuestion(difficulty: Difficulty, allowedOperations: MathOp[]): MathEquation {
+  const ops = allowedOperations.length > 0 ? allowedOperations : ALL_OPERATIONS;
+  const op = ops[Math.floor(Math.random() * ops.length)];
+
+  switch (op) {
+    case '+': {
+      // Answer = sum; pick the sum first, then split into two positive addends
+      const [lo, hi] = difficulty === 'easy' ? [2, 5] : difficulty === 'medium' ? [3, 7] : [5, 9];
+      const answer = Math.floor(Math.random() * (hi - lo + 1)) + lo;
+      const a = Math.floor(Math.random() * (answer - 1)) + 1;
+      return { a, b: answer - a, op, answer };
+    }
+    case '-': {
+      // a > b always, so answer (a - b) is positive
+      const [lo, hi] = difficulty === 'easy' ? [2, 5] : difficulty === 'medium' ? [3, 7] : [5, 9];
+      const a = Math.floor(Math.random() * (hi - lo + 1)) + lo;
+      const b = Math.floor(Math.random() * (a - 1)) + 1;
+      return { a, b, op, answer: a - b };
+    }
+    case '×': {
+      const [alo, ahi, blo, bhi] =
+        difficulty === 'easy'   ? [1, 2, 1, 3] :
+        difficulty === 'medium' ? [2, 3, 2, 3] :
+                                   [2, 4, 2, 3];
+      const a = Math.floor(Math.random() * (ahi - alo + 1)) + alo;
+      const b = Math.floor(Math.random() * (bhi - blo + 1)) + blo;
+      // Guard: retry if product exceeds a single digit (~1/6 of hard combos)
+      if (a * b > 9) return generateQuestion(difficulty, ops);
+      return { a, b, op, answer: a * b };
+    }
+    case '÷': {
+      // Evenly-divisible by construction: a (dividend) = answer (quotient) × b (divisor)
+      const [qlo, qhi, dlo, dhi] =
+        difficulty === 'easy'   ? [1, 2, 1, 2] :
+        difficulty === 'medium' ? [2, 4, 2, 3] :
+                                   [3, 9, 2, 3];
+      const answer = Math.floor(Math.random() * (qhi - qlo + 1)) + qlo; // quotient — single digit
+      const b = Math.floor(Math.random() * (dhi - dlo + 1)) + dlo;       // divisor
+      return { a: answer * b, b, op, answer };                            // a = dividend
+    }
+  }
+}
+
 // Module-level state to persist progress when component unmounts (e.g. switching tabs)
 const INITIAL_SAVED_STATE = () => ({
+  gameMode: 'counting' as GameMode,
   level: 1,
   targetNumber: 1,
   questionCount: 0,
   missingSequence: [] as number[],
   missingIndex: 0,
-  mathEq: { a: 0, b: 0, op: '+' as '+' | '-' }
+  mathEq: { a: 0, b: 0, op: '+' as MathOp, answer: 0 },
+  difficulty: 'easy' as Difficulty,
+  selectedOps: [...ALL_OPERATIONS] as MathOp[],
 });
 let savedState = INITIAL_SAVED_STATE();
 
@@ -21,6 +94,8 @@ export const NumbersGameView: React.FC = () => {
   const dispatch = useDispatch();
   const text = useSelector((state: RootState) => state.prediction.text);
   
+  // Game mode — counting and math are independent, user-selectable modes
+  const [gameMode, setGameMode] = useState<GameMode>(savedState.gameMode);
   const [level, setLevel] = useState(savedState.level);
   const [targetNumber, setTargetNumber] = useState(savedState.targetNumber);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -32,8 +107,10 @@ export const NumbersGameView: React.FC = () => {
   const [missingSequence, setMissingSequence] = useState<number[]>(savedState.missingSequence);
   const [missingIndex, setMissingIndex] = useState<number>(savedState.missingIndex);
   
-  // Level 3 & 4 state
+  // Math challenge state (level 3+)
   const [mathEq, setMathEq] = useState(savedState.mathEq);
+  const [difficulty, setDifficulty] = useState<Difficulty>(savedState.difficulty);
+  const [selectedOps, setSelectedOps] = useState<Set<MathOp>>(new Set(savedState.selectedOps));
   
   // XP state
   const [progress, setProgressState] = useState<UserProgress>(getProgress());
@@ -41,13 +118,16 @@ export const NumbersGameView: React.FC = () => {
   
   // Sync state changes to global savedState
   useEffect(() => {
+    savedState.gameMode = gameMode;
     savedState.level = level;
     savedState.targetNumber = targetNumber;
     savedState.questionCount = questionCount;
     savedState.missingSequence = missingSequence;
     savedState.missingIndex = missingIndex;
     savedState.mathEq = mathEq;
-  }, [level, targetNumber, questionCount, missingSequence, missingIndex, mathEq]);
+    savedState.difficulty = difficulty;
+    savedState.selectedOps = Array.from(selectedOps);
+  }, [gameMode, level, targetNumber, questionCount, missingSequence, missingIndex, mathEq, difficulty, selectedOps]);
 
   useEffect(() => {
     dispatch(setSignMode('numbers')); 
@@ -60,10 +140,9 @@ export const NumbersGameView: React.FC = () => {
       dispatch(setTargetLetter(targetNumber.toString()));
     } else if (level === 2) {
       generateSequence();
-    } else if (level === 3) {
-      generateMath('+');
-    } else if (level === 4) {
-      generateMath('-');
+    } else {
+      // Math challenge mode (level 3) — uses user's difficulty + operation selection
+      generateMath();
     }
     
     return () => {
@@ -85,23 +164,41 @@ export const NumbersGameView: React.FC = () => {
     setShowWrong(false);  // Bug 3: clear error banner for new question
   };
 
-  const generateMath = (op: '+' | '-') => {
-    let a, b, ans;
-    if (op === '+') {
-      ans = Math.floor(Math.random() * 8) + 2; // answer between 2 and 9
-      a = Math.floor(Math.random() * (ans - 1)) + 1;
-      b = ans - a;
-    } else {
-      a = Math.floor(Math.random() * 8) + 2; // a between 2 and 9
-      b = Math.floor(Math.random() * (a - 1)) + 1; // b between 1 and a-1
-      ans = a - b;
-    }
-    setMathEq({ a, b, op });
-    setTargetNumber(ans);
-    dispatch(setTargetLetter(ans.toString()));
+  const generateMath = () => {
+    const eq = generateQuestion(difficulty, Array.from(selectedOps));
+    setMathEq({ a: eq.a, b: eq.b, op: eq.op, answer: eq.answer });
+    setTargetNumber(eq.answer);
+    dispatch(setTargetLetter(eq.answer.toString()));
     setShowHint(false);   // Bug 2: hide hint for new question
     setShowWrong(false);  // Bug 3: clear error banner for new question
   };
+
+  // Switch between the two independent game modes — no forced progression.
+  // Counting mode runs levels 1-2 (counting → sequence); math mode is level 3.
+  // Guarded while a success banner is showing so the pending advance-timeout
+  // can't race the mode switch (buttons are disabled during the 1.5s celebration).
+  const switchMode = (mode: GameMode) => {
+    if (mode === gameMode) return;
+    setGameMode(mode);
+    setQuestionCount(0);
+    setShowHint(false);
+    setShowWrong(false);
+    dispatch(clearText());
+    if (mode === 'counting') {
+      setLevel(1);
+      setTargetNumber(1);
+      // Level change → level effect dispatches setTargetLetter('1')
+    } else {
+      setLevel(3);
+      // Level change → level effect generates the first math question
+    }
+  };
+
+  // Regenerate math question when user changes difficulty or operation selection (math mode only)
+  useEffect(() => {
+    if (gameMode === 'math') generateMath();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficulty, selectedOps]);
 
   useEffect(() => {
     if (text.length > 0) {
@@ -126,35 +223,39 @@ export const NumbersGameView: React.FC = () => {
               setTargetNumber(targetNumber + 1);
               dispatch(setTargetLetter((targetNumber + 1).toString()));
             } else {
+              // Counting 1-9 complete → advance to the sequence game (still within counting mode)
               setLevel(2);
               setQuestionCount(0);
               playBossWinSound();
               const bonusProgress = addXp(50); // Level completion bonus
               setProgressState(bonusProgress);
             }
-          } else {
-            // Logic for Levels 2, 3, 4
+          } else if (gameMode === 'counting') {
+            // Sequence game (counting mode, level 2)
             if (questionCount >= 2) {
-              if (level < 4) {
-                setLevel(level + 1);
-                setQuestionCount(0);
-                playBossWinSound();
-                const bonusProgress = addXp(50); // Level completion bonus
-                setProgressState(bonusProgress);
-              } else {
-                // Game beat! Loop back or stay.
-                setLevel(1);
-                setTargetNumber(1);
-                setQuestionCount(0);
-                playBossWinSound();
-                const bonusProgress = addXp(100); // Game beat bonus
-                setProgressState(bonusProgress);
-              }
+              // Sequence beat → loop back to counting from 1 (counting mode is replayable)
+              setLevel(1);
+              setTargetNumber(1);
+              setQuestionCount(0);
+              playBossWinSound();
+              const bonusProgress = addXp(100); // Game beat bonus
+              setProgressState(bonusProgress);
             } else {
               setQuestionCount(qc => qc + 1);
-              if (level === 2) generateSequence();
-              else if (level === 3) generateMath('+');
-              else if (level === 4) generateMath('-');
+              generateSequence();
+            }
+          } else {
+            // Math challenge mode — fully independent of counting
+            if (questionCount >= 2) {
+              // Round complete → celebrate and start a fresh round (stays in math mode)
+              setQuestionCount(0);
+              playBossWinSound();
+              const bonusProgress = addXp(100); // Round completion bonus
+              setProgressState(bonusProgress);
+              generateMath();
+            } else {
+              setQuestionCount(qc => qc + 1);
+              generateMath();
             }
           }
         }, 1500);
@@ -168,12 +269,18 @@ export const NumbersGameView: React.FC = () => {
         }, 1500);
       }
     }
-  }, [text, targetNumber, showSuccess, showWrong, level, questionCount, dispatch]);
+  }, [text, targetNumber, showSuccess, showWrong, level, gameMode, questionCount, dispatch]);
 
   const getLevelTitle = () => {
     if (level === 1) return "Count with me!";
     if (level === 2) return "Fill the Blank Number!";
-    return mathEq.op === '-' ? "Subtraction Time!" : "Addition Time!";
+    const opNames: Record<MathOp, string> = {
+      '+': 'Addition',
+      '-': 'Subtraction',
+      '×': 'Multiplication',
+      '÷': 'Division',
+    };
+    return `${opNames[mathEq.op]} Time!`;
   };
 
   return (
@@ -194,10 +301,102 @@ export const NumbersGameView: React.FC = () => {
             🔥 {progress.dailyStreak} Day Streak
           </div>
           <div className="bg-cyan-50 text-cyan-600 font-black px-4 py-2 rounded-xl shadow-inner border-2 border-cyan-100">
-            Game Level {level}
+            {gameMode === 'counting' ? `Counting · Lvl ${level}` : 'Math Challenge'}
           </div>
         </div>
       </div>
+
+      {/* Game mode selector — counting and math are independent modes, freely switchable */}
+      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-bold text-slate-500">Game Mode:</span>
+        <button
+          onClick={() => switchMode('counting')}
+          disabled={showSuccess}
+          className={`px-5 py-2.5 rounded-full text-sm font-black transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
+            gameMode === 'counting'
+              ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          🔢 Count with Me
+        </button>
+        <button
+          onClick={() => switchMode('math')}
+          disabled={showSuccess}
+          className={`px-5 py-2.5 rounded-full text-sm font-black transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
+            gameMode === 'math'
+              ? 'bg-gradient-to-r from-violet-400 to-fuchsia-500 text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          ➕ Math Challenge
+        </button>
+      </div>
+
+      {/* Difficulty + operation settings (math challenge mode only) */}
+      {gameMode === 'math' && (
+      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
+        <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Math Challenge Settings</span>
+
+        {/* Difficulty */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-slate-500">Difficulty:</span>
+          {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
+            <button
+              key={d}
+              onClick={() => setDifficulty(d)}
+              className={`px-4 py-2 rounded-full text-sm font-black transition-all duration-200 ${
+                difficulty === d
+                  ? 'bg-cyan-500 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {d.charAt(0).toUpperCase() + d.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Operation selection */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-slate-500">Practice:</span>
+          <button
+            onClick={() => setSelectedOps(new Set(ALL_OPERATIONS))}
+            className={`px-4 py-2 rounded-full text-sm font-black transition-all duration-200 ${
+              selectedOps.size === ALL_OPERATIONS.length
+                ? 'bg-violet-500 text-white shadow-md'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            All
+          </button>
+          {ALL_OPERATIONS.map(op => {
+            const isActive = selectedOps.has(op);
+            const label = op === '+' ? 'Addition' : op === '-' ? 'Subtraction' : op === '×' ? 'Multiplication' : 'Division';
+            return (
+              <button
+                key={op}
+                onClick={() => {
+                  const next = new Set(selectedOps);
+                  if (isActive) {
+                    if (next.size > 1) next.delete(op); // always keep at least one selected
+                  } else {
+                    next.add(op);
+                  }
+                  setSelectedOps(next);
+                }}
+                className={`px-4 py-2 rounded-full text-sm font-black transition-all duration-200 ${
+                  isActive
+                    ? 'bg-emerald-500 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8 w-full">
         <div className="w-full lg:w-[40%] flex flex-col gap-6">

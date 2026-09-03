@@ -6,8 +6,8 @@ import { setUseLandmarkModel } from '../../store/predictionSlice';
 /**
  * ModelToggle
  * -----------
- * Toggle switch that switches CameraView between the CNN pixel model (default)
- * and the experimental MediaPipe landmark-based MLP.
+ * Toggle switch that switches CameraView between the CNN pixel model (red,
+ * default) and the experimental MediaPipe landmark-based MLP (green).
  *
  * Place this inside ModeSwitcher or anywhere in the Practice tab panel.
  * It reads/writes `state.prediction.useLandmarkModel` from Redux.
@@ -23,8 +23,8 @@ export const ModelToggle: React.FC = () => {
           {useLandmarkModel ? '🤙 Landmark Model' : '🧠 CNN Model'}
           <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-bold ${
             useLandmarkModel
-              ? 'bg-violet-100 text-violet-600'
-              : 'bg-teal-100 text-teal-600'
+              ? 'bg-emerald-100 text-emerald-600'
+              : 'bg-red-100 text-red-600'
           }`}>
             {useLandmarkModel ? 'Experimental' : 'Default'}
           </span>
@@ -36,15 +36,15 @@ export const ModelToggle: React.FC = () => {
         </span>
       </div>
 
-      {/* Toggle switch */}
+      {/* Toggle switch — RED track = CNN model, GREEN track = Landmark model */}
       <button
         role="switch"
         aria-checked={useLandmarkModel}
         onClick={() => dispatch(setUseLandmarkModel(!useLandmarkModel))}
-        className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+        className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none focus-visible:ring-2 ${
           useLandmarkModel
-            ? 'bg-violet-500 border-violet-500'
-            : 'bg-slate-200 border-slate-200'
+            ? 'bg-emerald-500 border-emerald-500 focus-visible:ring-emerald-500'
+            : 'bg-red-500 border-red-500 focus-visible:ring-red-500'
         }`}
       >
         <span

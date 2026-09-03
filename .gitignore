@@ -103,6 +103,7 @@ ml/tests/
 *.pt
 *.pth
 *.ckpt
+*.qoder
 
 # ============================================
 #  Keep small config files (OPTIONAL - uncomment if needed)

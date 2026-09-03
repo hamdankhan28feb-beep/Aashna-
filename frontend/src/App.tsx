@@ -6,7 +6,6 @@ import { CameraView } from './components/Camera/CameraView';
 import { OutputPanel } from './components/Output/OutputPanel';
 import { ControlsBar } from './components/Controls/ControlsBar';
 import { ModeSwitcher } from './components/Controls/ModeSwitcher';
-import { ModelToggle } from './components/Controls/ModelToggle';
 import { TabBar, type TabMode } from './components/Navigation/TabBar';
 import { FlashcardsView } from './components/Flashcards/FlashcardsView';
 import { QuizView } from './components/Quiz/QuizView';
@@ -37,7 +36,6 @@ function App() {
                 </div>
                 <div className="w-full lg:w-[35%] flex flex-col gap-5">
                   <ModeSwitcher />
-                  <ModelToggle />
                   <OutputPanel />
                   <ControlsBar />
                 </div>
