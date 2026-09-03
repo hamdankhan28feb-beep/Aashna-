@@ -8,7 +8,7 @@ export const Header: React.FC = () => {
         <img 
           src="/logo.png" 
           alt="Aashna Logo" 
-          className="h-16 w-auto object-contain transform transition-transform duration-500 group-hover:scale-105"
+          className="h-16 w-auto object-contain transform transition-transform duration-500 group-hover:scale-105 mix-blend-multiply"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
           }}
