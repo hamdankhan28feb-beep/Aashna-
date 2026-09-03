@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { appendChar, backspace, clearText } from '../../store/predictionSlice';
+import { appendChar, backspace, backspaceToWordStart, clearText } from '../../store/predictionSlice';
 import { RootState } from '../../store';
 
 export const ControlsBar: React.FC = () => {
@@ -30,6 +30,16 @@ export const ControlsBar: React.FC = () => {
       >
         <span className="text-xl">⌫</span> 
         Delete
+      </button>
+
+      <button 
+        onClick={() => dispatch(backspaceToWordStart())}
+        disabled={!text}
+        title="Delete back to the start of the current word (undoes a Spell Assist suggestion)"
+        className="flex-1 sm:flex-none min-w-[8.5rem] px-6 py-4 bg-white hover:bg-slate-50 disabled:hover:bg-white text-slate-600 disabled:text-slate-300 disabled:cursor-not-allowed rounded-[1.5rem] border-2 border-slate-100 hover:border-slate-200 disabled:border-slate-100 hover:shadow-lg hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 font-bold flex items-center justify-center gap-3"
+      >
+        <span className="text-xl">⌫</span> 
+        Word
       </button>
 
       <button 

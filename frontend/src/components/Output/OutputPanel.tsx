@@ -1,10 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Sparkles } from 'lucide-react';
 import { RootState } from '../../store';
+import { commitWord } from '../../store/predictionSlice';
+import { getSuggestions } from '../../services/spellAssistService';
+import { getProgress } from '../../services/progressService';
+import { playSuccessSound } from '../../utils/audio';
 
 export const OutputPanel: React.FC = () => {
+  const dispatch = useDispatch();
   const { current, text } = useSelector((state: RootState) => state.prediction);
   const [bounce, setBounce] = useState(false);
+
+  // Spell Assist: suggest completions for the partial word being signed
+  // (the letters after the last space) once it has at least 2 letters.
+  // Ranked offline by word frequency + the user's own letter practice stats.
+  const suggestions = useMemo(() => {
+    const partial = text.slice(text.lastIndexOf(' ') + 1);
+    if (partial.length < 2) return [];
+    return getSuggestions(partial, getProgress().letterStats);
+  }, [text]);
+
+  const handleCommitWord = (word: string) => {
+    dispatch(commitWord(word.toUpperCase()));
+    playSuccessSound();
+  };
 
   // Trigger bounce animation when a confident letter is detected
   useEffect(() => {
@@ -54,6 +74,25 @@ export const OutputPanel: React.FC = () => {
               {text || <span className="text-slate-300 font-medium">Start signing...</span>}
               <span className="inline-block w-1.5 h-12 md:h-16 bg-teal-400 ml-2 animate-pulse align-middle rounded-full opacity-80"></span>
             </p>
+
+            {suggestions.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-1 text-[0.65rem] font-black text-teal-400 uppercase tracking-widest">
+                  <Sparkles className="w-3.5 h-3.5" /> Spell Assist
+                </span>
+                {suggestions.map((word) => (
+                  <button
+                    key={word}
+                    type="button"
+                    onClick={() => handleCommitWord(word)}
+                    aria-label={`Use the word ${word.toUpperCase()}`}
+                    className="px-4 py-2 rounded-full bg-teal-50 border-2 border-teal-100 text-teal-700 font-black text-sm tracking-wide hover:bg-teal-500 hover:border-teal-500 hover:text-white active:scale-95 transition-all duration-200"
+                  >
+                    {word.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
           {current && current.confidence > 0.5 && (
