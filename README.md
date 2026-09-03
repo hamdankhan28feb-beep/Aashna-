@@ -11,21 +11,32 @@
 
 <p align="center">
   <a href="#features">Features</a> •
+  <a href="#-developed-by">Developed By</a> •
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#installation">Installation</a> •
   <a href="#running-the-project">Run</a> •
-  <a href="#project-structure">Structure</a>
+  <a href="#project-structure">Structure</a> •
+  <a href="#license">License</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Alibaba%20Cloud%20AI%20Hackathon-Pakistan%202026-blue?style=flat-square" alt="Alibaba Cloud AI Hackathon Pakistan 2026" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License" />
 </p>
 
 ---
 
 Aashna is a full-stack ASL learning platform that uses your webcam to recognise hand signs in real time. It runs two interchangeable deep-learning models entirely in the browser — a pixel-based CNN and a MediaPipe landmark-based MLP — and wraps recognition in gamified practice modes, a Gemini-powered roleplay chatbot, Firebase authentication, and a live leaderboard.
 
+Developed for the **Alibaba Cloud AI Hackathon Pakistan 2026**.
+
 ---
 
 ## Table of Contents
 
 - [Features](#features)
+- [Developed By](#-developed-by)
+- [Attribution](#-attribution)
 - [Tech Stack](#tech-stack)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -34,6 +45,8 @@ Aashna is a full-stack ASL learning platform that uses your webcam to recognise 
 - [Running the Project](#running-the-project)
 - [Model Files](#model-files)
 - [Project Structure](#project-structure)
+- [Security & Public Repository](#-security--public-repository)
+- [Third-Party Assets & Datasets](#-third-party-assets--datasets)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -54,6 +67,33 @@ Aashna is a full-stack ASL learning platform that uses your webcam to recognise 
 - **Text-to-Speech** — Built-in "Speak" button reads recognised text aloud using the browser's Web Speech API.
 
 > **Note:** A **Phrases** signing mode exists in the codebase but is currently hidden behind a feature flag (`SHOW_PHRASES_MODE = false`). It will be enabled once a dedicated phrase-recognition model is available.
+
+---
+
+## 👥 Developed By
+
+Aashna was designed and developed by:
+
+- **[Muhammad Hamdan](https://github.com/hamdankhan28feb-beep)**
+- **[Ayesha Nehal](https://github.com/AyeshaNehal)**
+
+Developed as part of the **Alibaba Cloud AI Hackathon Pakistan 2026**.
+
+---
+
+## 📜 Attribution
+
+Aashna is an original project created by **Muhammad Hamdan** and **Ayesha Nehal**.
+
+- **Repository:** [github.com/hamdankhan28feb-beep/Aashna](https://github.com/hamdankhan28feb-beep/Aashna)
+
+You are free to use, copy, modify, merge, publish, distribute, and build upon this project under the terms of the [MIT License](LICENSE). We only ask that you:
+
+1. **Retain the original copyright notice** and license file in any copy or substantial portion of the software.
+2. **Credit the original authors** when redistributing or showcasing derivative work.
+3. **Link back to the original repository** where practical.
+
+GitHub's commit history and contributor records document the development timeline and individual contributions to this project.
 
 ---
 
@@ -85,7 +125,7 @@ This is a monorepo-style layout with two independent services. Install dependenc
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/<your-username>/Aashna.git
+git clone https://github.com/hamdankhan28feb-beep/Aashna.git
 cd Aashna
 
 # 2. Install frontend dependencies
@@ -105,7 +145,9 @@ pip install -r requirements.txt
 
 ## Environment Variables
 
-The project requires **two separate `.env` files** — one for each service. Neither file is committed to the repository; both are listed in `.gitignore`. Copy the provided `.env.example` files and fill in your own values.
+The project requires **two separate `.env` files** — one for each service. Copy the provided `.env.example` files and fill in your own values.
+
+> ⚠️ **IMPORTANT — NEVER commit real credentials.** Actual `.env` files are listed in `.gitignore` and must **never** be pushed to the repository. All values shown below are **placeholders only** — replace them with your own keys when running locally.
 
 ### Frontend — `frontend/.env`
 
@@ -332,6 +374,29 @@ Aashna/
 
 ---
 
+## 🔒 Security & Public Repository
+
+This repository is **public**. The following practices are enforced and should be maintained by all contributors:
+
+- **`.env` files are gitignored** — never commit them. Use the `.env.example` templates as a starting point.
+- **API keys must never be committed** — including `GOOGLE_CLOUD_API_KEY`, Firebase web keys (`VITE_FIREBASE_*`), and any third-party service keys.
+- **Firebase Admin private keys must never be committed** — the `FIREBASE_PRIVATE_KEY` value in `backend/.env` grants full administrative access to your Firebase project.
+- **JWT secrets must never be committed** — `JWT_SECRET` in `backend/.env` is used for token signing and must be a unique, random string kept private.
+- **Rotate credentials if accidentally exposed** — if any secret is committed to Git history, rotate it immediately and consider rewriting history with [git filter-repo](https://github.com/newren/git-filter-repo) or [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/).
+
+> 💡 Even though Firebase **web** API keys are technically public by design, they can still be abused against your project quota. Always apply **HTTP referrer restrictions** and **Firestore Security Rules** (see [Firebase Setup](#firebase-setup)).
+
+---
+
+## 📦 Third-Party Assets & Datasets
+
+- **ASL Alphabet Dataset** — The images under `ml/data/raw/` and `frontend/public/asl/` are derived from the [Kaggle ASL Alphabet Dataset](https://www.kaggle.com/datasets/grassknoted/asl-alphabet). This dataset may be subject to its own license and usage restrictions. Please review the [original dataset's terms on Kaggle](https://www.kaggle.com/datasets/grassknoted/asl-alphabet) before redistributing it.
+- **MediaPipe** — Hand landmark detection is provided by [Google MediaPipe](https://developers.google.com/mediapipe) under the Apache 2.0 License.
+- **TensorFlow.js** — Browser-side inference uses [TensorFlow.js](https://www.tensorflow.org/js), licensed under the Apache 2.0 License.
+- **Google Gemini API** — The Roleplay chatbot uses Google's Generative Language API, subject to [Google's Terms of Service](https://ai.google.dev/terms).
+
+---
+
 ## Troubleshooting
 
 ### Firebase env vars not loading
@@ -370,15 +435,11 @@ Ensure your key has the **Generative Language API** enabled in the Google Cloud 
 
 ## License
 
-This project does not currently include a license file. All rights are reserved by the authors.
+This project is licensed under the **MIT License** — you are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the conditions in the full license text.
 
-If you plan to open-source this project, consider adding a `LICENSE` file at the repository root. Common choices include:
+See the [LICENSE](LICENSE) file for the complete license text.
 
-- **MIT** — permissive, allows commercial use
-- **Apache 2.0** — permissive with patent protection
-- **GPL-3.0** — copyleft, requires derivative works to be open-source
-
-See [choosealicense.com](https://choosealicense.com) for help deciding.
+**Copyright (c) 2026 Muhammad Hamdan & Ayesha Nehal**
 
 ---
 
