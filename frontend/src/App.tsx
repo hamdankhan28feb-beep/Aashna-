@@ -12,6 +12,7 @@ import { QuizView } from './components/Quiz/QuizView';
 import { NumbersGameView } from './components/NumbersGame/NumbersGameView';
 import { SpellingView } from './components/Spelling/SpellingView';
 import { RoleplayView } from './components/Roleplay/RoleplayView';
+import { TutorialsView } from './components/Tutorials/TutorialsView';
 import { AuthView } from './components/Auth/AuthView';
 import { LeaderboardView } from './components/Leaderboard/LeaderboardView';
 import { AchievementsView } from './components/Achievements/AchievementsView';
@@ -81,6 +82,10 @@ function App() {
             ) : activeTab === 'roleplay' ? (
               <div className="w-full">
                 <RoleplayView />
+              </div>
+            ) : activeTab === 'tutorials' ? (
+              <div className="w-full">
+                <TutorialsView />
               </div>
             ) : activeTab === 'leaderboard' ? (
               <div className="w-full">

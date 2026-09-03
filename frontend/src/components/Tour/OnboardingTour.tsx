@@ -58,7 +58,7 @@ const steps: Step[] = [
     buttons: ['back', 'skip', 'primary'],
     title: 'Your learning toolkit 🎒',
     content:
-      "Everything lives in these tabs: Flashcards to study signs, Duolingo Mode for quiz challenges, Numbers Game for counting and math, Spelling Bee to spell what you sign, Roleplay to chat with your AI buddy, plus Leaderboard and Badges to track your progress.",
+      "Everything lives in these tabs: Flashcards to study signs, Duolingo Mode for quiz challenges, Numbers Game for counting and math, Spelling Bee to spell what you sign, Roleplay to chat with your AI buddy, Tutorials for video lessons from your instructor, plus Leaderboard and Badges to track your progress.",
   },
   {
     ...STEP_DEFAULTS,

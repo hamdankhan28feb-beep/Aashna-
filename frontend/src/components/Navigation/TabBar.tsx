@@ -1,7 +1,7 @@
 import React from 'react';
-import { Camera, Layers, SpellCheck, MessageCircle, Trophy, Medal, Calculator } from 'lucide-react';
+import { Camera, Layers, SpellCheck, MessageCircle, Trophy, Medal, Calculator, GraduationCap } from 'lucide-react';
 
-export type TabMode = 'practice' | 'flashcards' | 'quiz' | 'numbers_game' | 'spelling' | 'roleplay' | 'leaderboard' | 'achievements';
+export type TabMode = 'practice' | 'flashcards' | 'quiz' | 'numbers_game' | 'spelling' | 'roleplay' | 'tutorials' | 'leaderboard' | 'achievements';
 
 interface TabBarProps {
   activeTab: TabMode;
@@ -71,6 +71,16 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
           }`}
         >
           <MessageCircle className="w-5 h-5" /> Roleplay
+        </button>
+        <button
+          onClick={() => onTabChange('tutorials')}
+          className={`px-8 py-3 rounded-full text-sm font-black tracking-wide transition-all duration-300 flex items-center gap-2 ${
+            activeTab === 'tutorials'
+              ? 'bg-gradient-to-r from-lime-400 to-emerald-500 text-white shadow-md transform scale-105'
+              : 'text-slate-800 hover:bg-white hover:text-lime-600'
+          }`}
+        >
+          <GraduationCap className="w-5 h-5" /> Tutorials
         </button>
         <button
           onClick={() => onTabChange('leaderboard')}
