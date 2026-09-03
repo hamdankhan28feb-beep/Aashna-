@@ -1,8 +1,7 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
-  /** Opens the guided tour — when absent, the help button is hidden. */
   onHelpClick?: () => void;
 }
 
@@ -32,11 +31,9 @@ export const Header: React.FC<HeaderProps> = ({ onHelpClick }) => {
         {onHelpClick && (
           <button
             onClick={onHelpClick}
-            title="Help — replay the guided tour"
-            aria-label="Help — replay the guided tour"
-            className="w-11 h-11 rounded-full bg-teal-50 border-2 border-teal-100 text-teal-600 font-black text-xl leading-none flex items-center justify-center cursor-pointer hover:bg-teal-100 hover:border-teal-200 hover:text-teal-700 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300"
+            className="px-5 py-2.5 rounded-full bg-teal-50 border-2 border-teal-100 text-sm font-black text-teal-600 flex items-center gap-2 cursor-pointer hover:bg-teal-100 hover:border-teal-200 hover:text-teal-700 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 transition-all duration-300"
           >
-            ?
+            <HelpCircle className="w-4 h-4" /> App Tour
           </button>
         )}
         <button

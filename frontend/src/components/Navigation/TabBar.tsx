@@ -10,8 +10,9 @@ interface TabBarProps {
 
 export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="flex justify-center mb-8 w-full overflow-x-auto pb-4">
-      <div data-tour="tab-bar" className="bg-white/60 backdrop-blur-md p-1.5 rounded-full border-2 border-white shadow-lg shadow-teal-500/10 flex items-center gap-1 min-w-max">
+    <div className="mb-8 w-full overflow-x-auto pb-4">
+      <div className="flex items-center justify-start xl:justify-center px-4 min-w-full w-max">
+        <div data-tour="tab-bar" className="bg-white/60 backdrop-blur-md p-1.5 rounded-full border-2 border-white shadow-lg shadow-teal-500/10 flex items-center gap-1">
         <button
           onClick={() => onTabChange('practice')}
           className={`px-6 py-3 rounded-full text-sm font-black tracking-wide transition-all duration-300 flex items-center gap-2 ${
@@ -102,6 +103,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
         >
           <Medal className="w-5 h-5" /> Badges
         </button>
+        </div>
       </div>
     </div>
   );
