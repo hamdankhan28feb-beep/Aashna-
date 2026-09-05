@@ -26,6 +26,7 @@ let modelCache: tf.LayersModel | null = null;
 
 // ── DIAGNOSTIC: throttle timestamp (remove after diagnosis) ──────────────────
 let _lastDiagLog = 0;
+const DIAG_LOG_INTERVAL = 2000; // log at most once every 2 s to reduce console overhead
 
 export async function loadModel(_mode: SignMode): Promise<tf.LayersModel> {
   if (modelCache) return modelCache;
@@ -69,10 +70,10 @@ export async function predictFrame(pixels: tf.Tensor3D, mode: SignMode): Promise
     const predicted = ALL_36_CLASSES[bestIdx] ?? "?";
     const confidence = probs[bestIdx] ?? 0;
 
-    // ── DIAGNOSTIC LOGGING (throttled to every 500 ms) ───────────────────────
+    // ── DIAGNOSTIC LOGGING (throttled to every DIAG_LOG_INTERVAL ms) ─────────
     // TODO: remove this block once diagnosis is complete.
     const now = Date.now();
-    if (now - _lastDiagLog >= 500) {
+    if (now - _lastDiagLog >= DIAG_LOG_INTERVAL) {
       _lastDiagLog = now;
       if (mode === 'numbers') {
         // Show all 10 digit probabilities so we can see where mass is pooling

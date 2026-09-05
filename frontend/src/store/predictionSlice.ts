@@ -19,7 +19,7 @@ interface PredictionState {
 const initialState: PredictionState = {
   current: null,
   text: "",
-  confidenceThreshold: 0.7,
+  confidenceThreshold: 0.55,
   signMode: 'letters',
   targetLetter: null,
   currentHint: null,

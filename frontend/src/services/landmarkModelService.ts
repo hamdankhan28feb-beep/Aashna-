@@ -27,6 +27,11 @@ let landmarkModelCache: tf.LayersModel | null = null;
 // every frame, which would spam console errors and stall the camera loop.
 let landmarkModelLoadError: unknown = null;
 
+// Throttle verbose diagnostic logging to every 2 s to keep the console usable
+// and avoid GC pressure from string-building on every frame.
+let _lastDiagLog = 0;
+const DIAG_LOG_INTERVAL = 2000;
+
 export async function loadLandmarkModel(): Promise<tf.LayersModel> {
   if (landmarkModelCache) return landmarkModelCache;
   if (landmarkModelLoadError) throw landmarkModelLoadError;
@@ -119,8 +124,6 @@ export async function predictLandmarks(
       return { letter: "?", confidence: 0, timestamp: Date.now() };
     }
 
-    console.log("[LandmarkModelService] Normalized vector (63 floats):", Array.from(vec.slice(0, 9)), "... (first 9 of 63)");
-
     const net = await loadLandmarkModel();
 
     const input = tf.tidy(() =>
@@ -132,8 +135,6 @@ export async function predictLandmarks(
     input.dispose();
     output.dispose();
 
-    console.log("[LandmarkModelService] Raw output probabilities (36 classes):", Array.from(probs));
-
     const { start, end } = MODE_RANGE[mode] ?? { start: 0, end: 35 };
     let bestIdx = start;
     for (let i = start + 1; i <= end; i++) {
@@ -143,14 +144,21 @@ export async function predictLandmarks(
     const predicted  = ALL_36_CLASSES[bestIdx] ?? "?";
     const confidence = probs[bestIdx] ?? 0;
 
-    console.log(`[LandmarkModelService] Prediction result: '${predicted}' (idx: ${bestIdx}) with confidence: ${(confidence * 100).toFixed(2)}% in mode: '${mode}'`);
+    // Throttled diagnostic logging — fires at most once every DIAG_LOG_INTERVAL ms.
+    const now = Date.now();
+    if (now - _lastDiagLog >= DIAG_LOG_INTERVAL) {
+      _lastDiagLog = now;
+      console.log(
+        `[LandmarkModelService] '${predicted}' confidence=${(confidence * 100).toFixed(1)}% mode='${mode}'`
+      );
+    }
 
     return {
       letter:     mode === "letters" || mode === "phrases"
                     ? predicted.toUpperCase()
                     : predicted,
       confidence,
-      timestamp: Date.now(),
+      timestamp: now,
     };
   } catch (err: unknown) {
     const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;

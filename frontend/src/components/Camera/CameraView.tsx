@@ -8,6 +8,9 @@ import { predictLandmarks } from '../../services/landmarkModelService';
 import { RootState } from '../../store';
 import { generateHandFeedback } from '../../utils/landmarkHeuristics';
 
+// Smoothed-candidate tracking refs live outside the component so they survive
+// re-renders without triggering them (they're never in JSX).
+
 export const CameraView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,12 +18,24 @@ export const CameraView: React.FC = () => {
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
   
-  const STABILITY_MS = 1000;
+  // Commit a sign once the smoothed prediction has been stable for this duration.
+  // 400 ms ≈ 12 frames at 30 fps — fast enough to feel instant, long enough to
+  // absorb brief jitter between adjacent classes.
+  const STABILITY_MS = 400;
+  // Minimum raw per-frame confidence to count a frame as a "valid" observation
+  // in the temporal buffer.  The smoothed (confidence-weighted) vote across
+  // the buffer is what actually gates a commit, so this floor is deliberately
+  // permissive — it lets slightly rotated or imperfect frames contribute.
+  const CONFIDENCE_THRESHOLD = 0.55;
 
-  const lastLetterRef        = useRef<string | null>(null);
-  const candidateLetterRef   = useRef<string | null>(null);
-  const candidateStartTimeRef = useRef<number | null>(null);
-  const lastHintTimeRef      = useRef<number>(0);
+  const lastLetterRef             = useRef<string | null>(null);
+  const candidateLetterRef        = useRef<string | null>(null);
+  const candidateStartTimeRef     = useRef<number | null>(null);
+  const lastHintTimeRef           = useRef<number>(0);
+  // Rolling buffer of the last N per-frame predictions used for confidence-
+  // weighted majority voting.  Provides temporal smoothing so that a single
+  // shaky frame cannot break an otherwise stable streak.
+  const predictionBufferRef = useRef<Array<{ letter: string; confidence: number }>>([]);
   
   const currentMode       = useSelector((state: RootState) => state.prediction.signMode);
   const useLandmarkModel  = useSelector((state: RootState) => state.prediction.useLandmarkModel);
@@ -31,9 +46,10 @@ export const CameraView: React.FC = () => {
   
   useEffect(() => {
     modeRef.current = currentMode;
-    lastLetterRef.current        = null;
-    candidateLetterRef.current   = null;
-    candidateStartTimeRef.current = null;
+    lastLetterRef.current             = null;
+    candidateLetterRef.current        = null;
+    candidateStartTimeRef.current     = null;
+    predictionBufferRef.current       = [];
     if (currentMode === 'phrases') {
       dispatch(setPrediction({ letter: '', confidence: 0, timestamp: Date.now() }));
     }
@@ -66,10 +82,10 @@ export const CameraView: React.FC = () => {
       });
 
       hands.setOptions({
-        maxNumHands: 1,           
-        modelComplexity: 0,       
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        maxNumHands: 1,
+        modelComplexity: 0,
+        minDetectionConfidence: 0.4,   // lower → faster first-hand pickup
+        minTrackingConfidence: 0.5     // keep at 0.5 for stable landmark quality
       });
 
       hands.onResults(onResults);
@@ -96,9 +112,11 @@ export const CameraView: React.FC = () => {
                 const imageData = preCtx.getImageData(0, 0, 640, 480);
                 const data = imageData.data;
                 
+                // Sample every 64 bytes (16 pixels × 4 channels) — 4× fewer
+                // iterations than the old step-16 loop; plenty for an average.
                 let totalLuminance = 0;
                 let count = 0;
-                for (let i = 0; i < data.length; i += 16) {
+                for (let i = 0; i < data.length; i += 64) {
                   totalLuminance += (data[i] + data[i+1] + data[i+2]) / 3;
                   count++;
                 }
@@ -247,15 +265,43 @@ export const CameraView: React.FC = () => {
 
         const now = Date.now();
 
-        // Hint logic runs regardless of which model is active
+        // ── Temporal smoothing via confidence-weighted majority vote ────────
+        // Push the current frame into a rolling buffer and score each class by
+        // the sum of its confidence across the window.  This lets slightly
+        // rotated / imperfect frames still contribute to a stable consensus,
+        // while isolated mis-classifications (low confidence on the wrong
+        // class) are naturally suppressed.
+        const MAX_BUFFER = 5;
+        const buf = predictionBufferRef.current;
+        buf.push({ letter: prediction.letter, confidence: prediction.confidence });
+        if (buf.length > MAX_BUFFER) buf.shift();
+
+        const classScores = new Map<string, number>();
+        for (const entry of buf) {
+          classScores.set(entry.letter, (classScores.get(entry.letter) ?? 0) + entry.confidence);
+        }
+        let smoothedLetter = buf[buf.length - 1].letter;
+        let smoothedScore  = 0;
+        let totalScore     = 0;
+        for (const [letter, score] of classScores) {
+          totalScore += score;
+          if (score > smoothedScore) {
+            smoothedLetter = letter;
+            smoothedScore  = score;
+          }
+        }
+        // Ratio of the winner's score to the total — 1.0 means full agreement.
+        const stability = totalScore > 0 ? smoothedScore / totalScore : 0;
+
+        // Hint logic — uses raw per-frame prediction for immediate feedback.
         if (targetLetterRef.current) {
-          if (prediction.letter !== targetLetterRef.current || prediction.confidence < 0.7) {
-            if (now - lastHintTimeRef.current > 500) {
+          if (prediction.letter !== targetLetterRef.current || prediction.confidence < CONFIDENCE_THRESHOLD) {
+            if (now - lastHintTimeRef.current > 400) {
               const hint = generateHandFeedback(targetLetterRef.current, primaryHandLandmarks);
               dispatch(setCurrentHint(hint));
               lastHintTimeRef.current = now;
             }
-          } else if (prediction.letter === targetLetterRef.current && prediction.confidence >= 0.7) {
+          } else if (prediction.letter === targetLetterRef.current && prediction.confidence >= CONFIDENCE_THRESHOLD) {
             if (now - lastHintTimeRef.current > 200) {
               dispatch(setCurrentHint(null));
               lastHintTimeRef.current = now;
@@ -263,27 +309,42 @@ export const CameraView: React.FC = () => {
           }
         }
 
-        if (prediction.confidence >= 0.7) {
-          const letter = prediction.letter;
+        // ── Commit gate ─────────────────────────────────────────────────────
+        // All three conditions must hold:
+        //  1. Raw current-frame confidence ≥ CONFIDENCE_THRESHOLD  (hand present, valid sign)
+        //  2. Smoothed stability ≥ 0.65  (≥ ~65 % of buffer mass agrees on one class)
+        //  3. The smoothed winner has been stable for ≥ STABILITY_MS
+        //  4. It's a different letter from the last committed one (no repeats)
+        if (
+          prediction.confidence >= CONFIDENCE_THRESHOLD &&
+          stability >= 0.65 &&
+          buf.length >= 3
+        ) {
+          const letter = smoothedLetter;
 
-          if (letter !== candidateLetterRef.current) {
-            candidateLetterRef.current    = letter;
-            candidateStartTimeRef.current = now;
-          } else if (
-            letter !== lastLetterRef.current &&
-            now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS
-          ) {
-            lastLetterRef.current = letter;
-            dispatch(appendLetter(letter));
+          if (letter !== lastLetterRef.current) {
+            // Track when this smoothed letter first became the consensus.
+            if (candidateLetterRef.current !== letter) {
+              candidateLetterRef.current    = letter;
+              candidateStartTimeRef.current = now;
+            } else if (now - (candidateStartTimeRef.current ?? now) >= STABILITY_MS) {
+              lastLetterRef.current = letter;
+              candidateLetterRef.current = null;
+              predictionBufferRef.current = [];
+              dispatch(appendLetter(letter));
+            }
           }
         }
       } catch (e) {
         console.error("Prediction error:", e);
       }
     } else {
+      // No hand detected — reset all smoothing state so the next sign starts
+      // with a clean buffer and no stale candidate.
       lastLetterRef.current         = null;
       candidateLetterRef.current    = null;
       candidateStartTimeRef.current = null;
+      predictionBufferRef.current   = [];
       if (targetLetterRef.current) {
         dispatch(setCurrentHint("Show your hand to the camera"));
       }
